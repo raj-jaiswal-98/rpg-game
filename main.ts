@@ -524,7 +524,12 @@ window.addEventListener("load", function () {
           return `
             <div class="hero-info ${isActive ? 'active-hero' : ''}" id="hero-info-${index}">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                <h3 style="margin: 0;">${hero.name}</h3>
+                <h3 style="margin: 0; display: flex; align-items: center; gap: 5px;">
+                  ${hero.name}
+                  ${hero.gender === 'male' 
+                    ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#77d4ff" stroke-width="2" title="Male"><circle cx="10" cy="14" r="5"/><path d="M21 3v6M21 3h-6M13.5 10.5L21 3"/></svg>' 
+                    : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e0b3ff" stroke-width="2" title="Female"><circle cx="12" cy="10" r="5"/><path d="M12 15v6M9 18h6"/></svg>'}
+                </h3>
                 <button class="active-toggle-btn ${isActive ? 'is-active' : ''}" id="hero-btn-${index}" data-index="${index}">
                   ${isActive ? 'Active' : (game.activeHeroIndex === -1 ? 'Select' : 'Set Active')}
                 </button>
