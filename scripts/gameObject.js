@@ -47,6 +47,9 @@ export class GameObject {
         //   TILE_SIZE,
         //   TILE_SIZE,
         // );
+        if (this.game.debug) {
+            console.log(`[GAME_DRAW] Drawing ${this.sprite.image.id} at (${this.position.x}, ${this.position.y}) source: (${this.sprite.x}, ${this.sprite.y}) size: ${this.sprite.width}x${this.sprite.height}`);
+        }
         ctx.drawImage(this.sprite.image, this.sprite.x * this.sprite.width, this.sprite.y * this.sprite.height, this.sprite.width, this.sprite.height, this.position.x + HALF_TILE - this.halfWidth, this.position.y + TILE_SIZE - this.height, this.width, this.height);
     }
 }

@@ -6,9 +6,10 @@ import { CollisionChecker } from "./collision.js";
 import { Toast } from "./toast.js";
 import { VisualIndicator } from "./visualIndicator.js";
 export class Hero extends GameObject {
-    constructor({ game, sprite, position, scale, name = "Laila", health = 100, maxEnergy = 100, energy = 50, speed = 75, indicatorColor = "255, 68, 68", gender = 'female', }) {
+    constructor({ game, sprite, position, scale, name = "Laila", health = 100, maxEnergy = 100, energy = 50, speed = 75, indicatorColor = "255, 68, 68", gender = 'female', familyId = Math.random().toString(36).substr(2, 9), }) {
         super({ game, sprite, position, scale });
         this.REPRODUCTION_DURATION = 5000; // 5 seconds
+        this.game = game;
         this.name = name;
         this.health = health;
         this.maxEnergy = maxEnergy;
@@ -16,8 +17,11 @@ export class Hero extends GameObject {
         this.speed = speed;
         this.indicatorColor = indicatorColor;
         this.gender = gender;
+        this.familyId = familyId;
         this.fertilityMeter = 50;
+        this.angerMeter = 0;
         this.isReproducing = false;
+        this.isDead = false;
         this.reproductionTimer = 0;
         this.maxFrame = 8;
         this.moving = false;
@@ -29,23 +33,8 @@ export class Hero extends GameObject {
         // Add 0-500ms jitter to prevent synchronized re-pathing
         this.WAIT_THRESHOLD = 1000 + Math.random() * 500;
         const isTileOccupied = (row, col) => {
-            if (!this.game || !this.game.heroes)
-                return false;
-            for (const other of this.game.heroes) {
-                if (other === this)
-                    continue;
-                // Check other hero's current position
-                const otherRow = Math.round(other.position.y / TILE_SIZE);
-                const otherCol = Math.round(other.position.x / TILE_SIZE);
-                if (row === otherRow && col === otherCol)
-                    return true;
-                // Check other hero's next immediate tile destination
-                const destRow = Math.round(other.destinationPosition.y / TILE_SIZE);
-                const destCol = Math.round(other.destinationPosition.x / TILE_SIZE);
-                if (row === destRow && col === destCol)
-                    return true;
-            }
-            return false;
+            console.log(`[HERO_NAV] ${this.name} checking tile (${col}, ${row}) for occupancy.`);
+            return this.game.isTileOccupied(row, col, this);
         };
         // Initialize pathfinding and collision checking
         this.collisionChecker = new CollisionChecker({
@@ -123,11 +112,12 @@ export class Hero extends GameObject {
                 y: Math.floor(worldClick.y / TILE_SIZE) * TILE_SIZE,
             };
             const { row, col } = this.collisionChecker.getTileCoordinates(targetPos);
-            // Check if target tile is blocked by world or current positions of others
             if (!this.collisionChecker.isPositionWalkable(targetPos)) {
+                console.log(`[HERO_NAV] ${this.name} blocked from navigating to (${col}, ${row})`);
                 Toast.error(`Cannot navigate to blocked tile (${col}, ${row})`);
             }
             else {
+                console.log(`[HERO_NAV] ${this.name} starting navigation to (${col}, ${row})`);
                 // Also check if someone else is already targeting this EXACT tile
                 let finalTargetBlocked = false;
                 for (const other of this.game.heroes) {
@@ -223,21 +213,13 @@ export class Hero extends GameObject {
                 if (this.energy < 0)
                     this.energy = 0;
             }
-            else if (this.energy <= 0) {
-                // Stop moving if no energy left
-                this.moving = false;
-                this.path = [];
-                this.visualIndicator.clear();
+            else if (this.energy <= 0 && !this.isBlocked) {
+                // Use health to move if out of energy
+                this.takeDamage(deltaTime / 1000 * 5); // 5 health per second for moving without energy
             }
         }
         else {
             this.moving = false;
-            // Passive energy regen when standing still? Maybe optional.
-            if (this.energy < this.maxEnergy) {
-                this.energy += deltaTime / 1000 * 2;
-                if (this.energy > this.maxEnergy)
-                    this.energy = this.maxEnergy;
-            }
         }
         // Update animation
         if (this.game.eventUpdate && this.moving && !this.isBlocked && !this.isReproducing) {
@@ -252,6 +234,9 @@ export class Hero extends GameObject {
             if (this.reproductionTimer <= 0) {
                 this.isReproducing = false;
                 this.fertilityMeter = 0;
+                // Reproduction toll
+                this.energy = 20;
+                this.health = this.health / 2;
             }
         }
         else if (!this.moving && this.energy > 50) {
@@ -259,7 +244,21 @@ export class Hero extends GameObject {
             this.fertilityMeter += deltaTime / 1000 * 2; // +2 per second
             if (this.fertilityMeter > 100)
                 this.fertilityMeter = 100;
+            // Decay anger when idle and fed
+            this.angerMeter -= deltaTime / 1000 * 1;
+            if (this.angerMeter < 0)
+                this.angerMeter = 0;
         }
+        // Passive anger increase and health decay when hungry
+        if (this.energy <= 0) {
+            this.angerMeter += deltaTime / 1000 * 5; // Hunger breeds anger
+            this.takeDamage(deltaTime / 1000 * 5); // Starvation: lose 5 health per second
+        }
+        else if (this.energy < 20) {
+            this.angerMeter += deltaTime / 1000 * 5; // Hunger breeds anger
+        }
+        if (this.angerMeter > 100)
+            this.angerMeter = 100;
     }
     /**
      * Follow the calculated path one tile at a time
@@ -324,14 +323,68 @@ export class Hero extends GameObject {
         }
     }
     /**
+     * Take damage and check for death
+     */
+    takeDamage(amount) {
+        this.health -= amount;
+        if (this.health <= 0) {
+            this.health = 0;
+            this.isDead = true;
+            console.log(`${this.name} has died.`);
+            Toast.error(`${this.name} has died.`);
+        }
+    }
+    /**
+     * Attack another hero
+     */
+    attack(target) {
+        if (this.isDead || target.isDead || this.familyId === target.familyId)
+            return;
+        console.log(`${this.name} is attacking ${target.name}!`);
+        target.takeDamage(20);
+        this.angerMeter -= 30; // Venting anger
+        if (this.angerMeter < 0)
+            this.angerMeter = 0;
+    }
+    /**
+     * Consume food to restore health and energy
+     */
+    eat(foodType) {
+        const energyGain = foodType === 'fastfood' ? 30 : 100;
+        if (this.health < this.maxEnergy * 0.5) {
+            // Priority: restore health first
+            this.health += energyGain;
+            if (this.health > this.maxEnergy) {
+                const overflow = this.health - this.maxEnergy;
+                this.health = this.maxEnergy;
+                this.energy += overflow;
+            }
+        }
+        else {
+            // Split gain
+            this.health += energyGain * 0.4;
+            this.energy += energyGain * 0.6;
+            if (this.health > this.maxEnergy)
+                this.health = this.maxEnergy;
+        }
+        if (this.energy > 100)
+            this.energy = 100;
+        this.angerMeter -= 20; // Food reduces anger
+        if (this.angerMeter < 0)
+            this.angerMeter = 0;
+    }
+    /**
      * Start reproduction activity
      */
-    startReproducing() {
+    startReproducing(partner) {
         this.isReproducing = true;
         this.reproductionTimer = this.REPRODUCTION_DURATION;
         this.moving = false;
         this.path = [];
         this.visualIndicator.clear();
+        // Partners share family link
+        if (partner)
+            partner.familyId = this.familyId;
     }
     /**
      * Draw the visual indicator for the target tile
