@@ -87,13 +87,13 @@ export class GameObject {
   draw(ctx: CanvasRenderingContext2D): void {
     ctx.fillStyle = "transparent";
     ctx.fillRect(this.position.x, this.position.y, TILE_SIZE, TILE_SIZE);
-    ctx.strokeStyle = "yellow";
-    ctx.strokeRect(
-      this.destinationPosition.x,
-      this.destinationPosition.y,
-      TILE_SIZE,
-      TILE_SIZE,
-    );
+    // ctx.strokeStyle = "yellow";
+    // ctx.strokeRect(
+    //   this.destinationPosition.x,
+    //   this.destinationPosition.y,
+    //   TILE_SIZE,
+    //   TILE_SIZE,
+    // );
     ctx.drawImage(
       this.sprite.image,
       this.sprite.x * this.sprite.width,
