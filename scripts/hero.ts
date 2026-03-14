@@ -588,5 +588,22 @@ export class Hero extends GameObject {
       this.position.y - 10
     );
     ctx.restore();
+
+    // Draw reproduction heart animation
+    if (this.isReproducing) {
+      const pulse = Math.sin(Date.now() / 150) * 0.2 + 1; // Pulse between 0.8 and 1.2
+      ctx.save();
+      ctx.translate(this.position.x + HALF_TILE, this.position.y - 30);
+      ctx.scale(pulse, pulse);
+      
+      // Draw Heart SVG (or custom path)
+      ctx.fillStyle = "#ff4757";
+      ctx.beginPath();
+      ctx.moveTo(0, 5);
+      ctx.bezierCurveTo(-5, -5, -15, 0, 0, 15);
+      ctx.bezierCurveTo(15, 0, 5, -5, 0, 5);
+      ctx.fill();
+      ctx.restore();
+    }
   }
 }
