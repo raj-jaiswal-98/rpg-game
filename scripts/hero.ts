@@ -91,8 +91,8 @@ export class Hero extends GameObject {
     indicatorColor = "255, 68, 68",
     gender = 'female',
     familyId = Math.random().toString(36).substr(2, 9),
-    socialStatus = 0,
-    fertilityMeter = 50,
+    socialStatus = 50 + Math.floor(Math.random() * 50), // Start with 50-100 built-in status
+    fertilityMeter = 60 + Math.floor(Math.random() * 40), // Start with 60-100 built-in fertility
     angerMeter = 0,
     isDead = false,
   }: HeroConfig) {
