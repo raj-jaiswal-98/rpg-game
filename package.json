@@ -9,20 +9,22 @@
     "world"
   ],
   "author": "darryj",
-  "type": "commonjs",
-  "main": "main.js",
+  "type": "module",
+  "main": "dist/main.js",
   "scripts": {
-    "dev": "live-server --port=3000 --open=./",
-    "lint": "eslint *.js .scripts/*.js",
-    "lint:fix": "eslint *.js .scripts/*.js --fix",
-    "format": "prettier --write \"*.js\" \".scripts/*.js\" \"*.html\" \"*.json\"",
-    "format:check": "prettier --check \"*.js\" \".scripts/*.js\" \"*.html\" \"*.json\"",
-    "test": "echo \"No tests specified\" && exit 0",
-    "build": "echo \"No build step needed for this project\""
+    "build": "tsc",
+    "dev": "concurrently \"tsc --watch\" \"live-server --port=3000 --open=./ --wait=500\"",
+    "lint": "eslint *.ts scripts/*.ts",
+    "lint:fix": "eslint *.ts scripts/*.ts --fix",
+    "format": "prettier --write \"*.ts\" \"scripts/*.ts\" \"*.html\" \"*.json\"",
+    "format:check": "prettier --check \"*.ts\" \"scripts/*.ts\" \"*.html\" \"*.json\"",
+    "test": "echo \"No tests specified\" && exit 0"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "eslint": "^10.0.3",
     "live-server": "^1.2.2",
-    "prettier": "^3.8.1"
+    "prettier": "^3.8.1",
+    "typescript": "^5.9.3"
   }
 }
