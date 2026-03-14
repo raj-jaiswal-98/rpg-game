@@ -6,7 +6,9 @@ import { CollisionChecker } from "./collision.js";
 import { Toast } from "./toast.js";
 import { VisualIndicator } from "./visualIndicator.js";
 export class Hero extends GameObject {
-    constructor({ game, sprite, position, scale, name = "Laila", health = 100, maxHealth, maxEnergy = 100, energy = 50, speed = 75, indicatorColor = "255, 68, 68", gender = 'female', familyId = Math.random().toString(36).substr(2, 9), socialStatus = 0, fertilityMeter = 50, angerMeter = 0, isDead = false, }) {
+    constructor({ game, sprite, position, scale, name = "Laila", health = 100, maxHealth, maxEnergy = 100, energy = 50, speed = 75, indicatorColor = "255, 68, 68", gender = 'female', familyId = Math.random().toString(36).substr(2, 9), socialStatus = 50 + Math.floor(Math.random() * 50), // Start with 50-100 built-in status
+    fertilityMeter = 60 + Math.floor(Math.random() * 40), // Start with 60-100 built-in fertility
+    angerMeter = 0, isDead = false, }) {
         super({ game, sprite, position, scale });
         this.REPRODUCTION_DURATION = 5000; // 5 seconds
         this.game = game;
