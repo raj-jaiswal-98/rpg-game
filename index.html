@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2d world RPG</title>
+    <style>
+        #canvas {
+            border: 2px solid black;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .assets {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <div class="assets">
+        <img src="images/backgroundLevel1.png" id="backgroundLevel1">
+        <img src="images/foregroundLevel1.png" id="foregroundLevel1">
+        <img src="images/hero1.png" id="hero1">
+        <img src="images/hero2.png" id="hero2">
+    </div>
+
+    <script type="module" src="main.js"></script>
+</body>
+</html>

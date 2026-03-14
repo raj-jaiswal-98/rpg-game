@@ -1,0 +1,18 @@
+{
+  "name": "rpg-game",
+  "version": "1.0.0",
+  "description": "2d rpg game",
+  "keywords": [
+    "rpg",
+    "games",
+    "2d",
+    "world"
+  ],
+  "license": "ISC",
+  "author": "darryj",
+  "type": "commonjs",
+  "main": "main.js",
+  "scripts": {
+    "test": "test"
+  }
+}
