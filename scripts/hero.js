@@ -111,6 +111,18 @@ export class Hero extends GameObject {
     isAdult() {
         return this.health >= 100 && this.scale >= 1;
     }
+    /**
+     * Get the current high-level action state of the hero for UI representation
+     */
+    get currentAction() {
+        if (this.angerMeter > 80)
+            return 'violence';
+        if (this.intendedPartner !== null || this.isReproducing)
+            return 'mate';
+        if (this.intendedFoodPos !== null)
+            return 'food';
+        return 'idle';
+    }
     update(deltaTime) {
         const scaledSpeed = this.speed * (deltaTime / 1000);
         // Puberty/Growth System

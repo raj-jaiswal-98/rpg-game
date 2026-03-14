@@ -448,6 +448,7 @@ window.addEventListener("load", function () {
             <div class="hero-info ${isActive ? 'active-hero' : ''}" id="hero-info-${index}">
               <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
                 <h3 style="margin: 0; display: flex; align-items: center; gap: 5px;">
+                  <span id="action-icon-${index}" title="Current Status" style="font-size: 14px;"></span>
                   ${hero.name}
                   ${hero.gender === 'male'
                         ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#77d4ff" stroke-width="2" title="Male"><circle cx="10" cy="14" r="5"/><path d="M21 3v6M21 3h-6M13.5 10.5L21 3"/></svg>'
@@ -671,6 +672,16 @@ window.addEventListener("load", function () {
                 const statusEl = document.getElementById(`hero-status-${index}`);
                 if (statusEl) {
                     statusEl.innerText = hero.isReproducing ? "Engaging in reproduction..." : "";
+                }
+                const actionIcon = document.getElementById(`action-icon-${index}`);
+                if (actionIcon) {
+                    const actionMap = {
+                        'violence': '🤬',
+                        'mate': '💘',
+                        'food': '🍔',
+                        'idle': '💤'
+                    };
+                    actionIcon.innerText = actionMap[hero.currentAction];
                 }
                 // Update UI dynamic styling
                 const infoDiv = document.getElementById(`hero-info-${index}`);
