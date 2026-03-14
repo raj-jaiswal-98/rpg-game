@@ -4,8 +4,6 @@ import { Hero } from "./scripts/hero.js";
 import { Camera } from "./scripts/camera.js";
 import { Food } from "./scripts/food.js";
 import { PersistenceManager } from "./scripts/persistence.js";
-// Make Food available to the spawner until we refactor into modules etc.
-window.Food = Food;
 export const TILE_SIZE = 32;
 export const ROWS = 20;
 export const COLS = 15;
@@ -173,7 +171,7 @@ window.addEventListener("load", function () {
                     const imgId = fData.type === 'fastfood' ? "food-burger" : "food-meal";
                     const foodImg = document.getElementById(imgId);
                     if (foodImg) {
-                        this.food.push(new window.Food({
+                        this.food.push(new Food({
                             game: this,
                             type: fData.type,
                             sprite: { image: foodImg, x: 0, y: 0, width: 64, height: 64 },
@@ -190,6 +188,8 @@ window.addEventListener("load", function () {
             ctx.scale(this.camera.zoom, this.camera.zoom);
             ctx.translate(-this.camera.x, -this.camera.y);
             this.world.drawBackground(ctx);
+            this.food.forEach(f => f.update(deltaTime));
+            this.food = this.food.filter(f => !f.isExpired);
             this.food.forEach(f => f.draw(ctx));
             this.heroes.forEach(h => h.draw(ctx));
             this.heroes.forEach(h => h.drawTargetIndicator(ctx));
@@ -230,7 +230,7 @@ window.addEventListener("load", function () {
                     console.error(`[WORLD_FOOD] Could not find image element with ID: ${imgId}`);
                     return;
                 }
-                const food = new window.Food({
+                const food = new Food({
                     game: this,
                     type: type,
                     sprite: {
@@ -479,8 +479,8 @@ window.addEventListener("load", function () {
         const deltaTime = timestamp - lastTime;
         lastTime = timestamp;
         game.render(ctx, deltaTime);
-        // Food Spawning logic (Random intervals)
-        if (game.eventUpdate && game.autoSpawnEnabled && game.spawnFrequencyMultiplier > 0) {
+        // Food Spawning logic (Random intervals) - Capped at 15 items
+        if (game.eventUpdate && game.autoSpawnEnabled && game.spawnFrequencyMultiplier > 0 && game.food.length < 15) {
             if (Math.random() < 0.05 * game.spawnFrequencyMultiplier)
                 game.spawnFood('fastfood');
             if (Math.random() < 0.01 * game.spawnFrequencyMultiplier)
