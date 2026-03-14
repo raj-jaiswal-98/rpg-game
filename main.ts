@@ -2,6 +2,11 @@ import { Input } from "./scripts/input.js";
 import World from "./scripts/world.js";
 import { Hero } from "./scripts/hero.js";
 import { Camera } from "./scripts/camera.js";
+import { Food } from "./scripts/food.js";
+import { VisualIndicator } from "./scripts/visualIndicator.js";
+
+// Make Food available to the spawner until we refactor into modules etc.
+(window as any).Food = Food;
 
 export const TILE_SIZE = 32;
 export const ROWS = 20;
@@ -48,6 +53,7 @@ interface Game {
   eventInterval: number;
   debug: boolean;
   render(ctx: CanvasRenderingContext2D, deltaTime: number): void;
+  isTileOccupied(row: number, col: number, excludeHero?: Hero): boolean;
 }
 
 window.addEventListener("load", function () {
@@ -59,6 +65,7 @@ window.addEventListener("load", function () {
   class Game {
     world!: World;
     heroes!: Hero[];
+    food: any[] = [];
     activeHeroIndex!: number;
     input!: Input;
     camera!: Camera;
@@ -66,6 +73,8 @@ window.addEventListener("load", function () {
     eventTimer!: number;
     eventInterval!: number;
     debug!: boolean;
+    autoSpawnEnabled: boolean = true;
+    spawnFrequencyMultiplier: number = 1;
 
     constructor() {
       this.world = new World();
@@ -73,12 +82,14 @@ window.addEventListener("load", function () {
 
       // Helper to generate a random walkable coordinate
       const getRandomSafePosition = (): Position => {
-         let row, col;
-         do {
-            row = Math.floor(Math.random() * ROWS);
-            col = Math.floor(Math.random() * COLS);
-         } while (this.world.getTile(this.world.level1.collisionLayer, row, col) === 1);
-         return { x: col * TILE_SIZE, y: row * TILE_SIZE };
+        let row, col;
+        let attempts = 0;
+        do {
+          row = Math.floor(Math.random() * ROWS);
+          col = Math.floor(Math.random() * COLS);
+          attempts++;
+        } while ((this.world.getTile(this.world.level1.collisionLayer, row, col) === 1 || this.isTileOccupied(row, col)) && attempts < 100);
+        return { x: col * TILE_SIZE, y: row * TILE_SIZE };
       };
 
       this.heroes = [
@@ -117,6 +128,42 @@ window.addEventListener("load", function () {
           scale: 1,
           indicatorColor: "224, 179, 255", // Purple for Laila
           gender: 'female',
+        }),
+        new Hero({
+          game: this,
+          name: "Adam",
+          health: 100,
+          energy: 80,
+          speed: 75,
+          sprite: {
+            image: document.getElementById("hero1") as HTMLImageElement,
+            x: 0,
+            y: 0,
+            width: 64,
+            height: 64
+          },
+          position: getRandomSafePosition(),
+          scale: 1,
+          indicatorColor: "255, 100, 100",
+          gender: 'male',
+        }),
+        new Hero({
+          game: this,
+          name: "Eve",
+          health: 100,
+          energy: 80,
+          speed: 75,
+          sprite: {
+            image: document.getElementById("hero2") as HTMLImageElement,
+            x: 0,
+            y: 0,
+            width: 64,
+            height: 64
+          },
+          position: getRandomSafePosition(),
+          scale: 1,
+          indicatorColor: "255, 150, 200",
+          gender: 'female',
         })
       ];
       this.input = new Input();
@@ -125,7 +172,7 @@ window.addEventListener("load", function () {
       this.eventUpdate = false;
       this.eventTimer = 0;
       this.eventInterval = 50;
-      this.debug = false;
+      this.debug = true; // Set to true for diagnostics
     }
     render(ctx: CanvasRenderingContext2D, deltaTime: number) {
       this.heroes.forEach(h => h.update(deltaTime));
@@ -135,6 +182,7 @@ window.addEventListener("load", function () {
       ctx.translate(-this.camera.x, -this.camera.y);
 
       this.world.drawBackground(ctx);
+      this.food.forEach(f => f.draw(ctx));
       this.heroes.forEach(h => h.draw(ctx));
       this.heroes.forEach(h => h.drawTargetIndicator(ctx));
       this.world.drawForeground(ctx);
@@ -149,8 +197,131 @@ window.addEventListener("load", function () {
         this.eventUpdate = true;
       }
     }
+    spawnFood(type: 'fastfood' | 'meal') {
+      try {
+        console.log(`[WORLD_FOOD] spawnFood execution started for type: ${type}`);
+        // Find safe position
+        let row: number, col: number;
+        let attempts = 0;
+        do {
+          row = Math.floor(Math.random() * ROWS);
+          col = Math.floor(Math.random() * COLS);
+          attempts++;
+        } while ((this.world.getTile(this.world.level1.collisionLayer, row, col) === 1 || this.isTileOccupied(row, col)) && attempts < 100);
+
+        if (attempts >= 100) {
+          console.warn("[WORLD_FOOD] Could not find empty tile to spawn food after 100 attempts");
+          return;
+        }
+
+        const imgId = type === 'fastfood' ? "food-burger" : "food-meal";
+        const foodImg = document.getElementById(imgId) as HTMLImageElement;
+        
+        if (!foodImg) {
+          console.error(`[WORLD_FOOD] Could not find image element with ID: ${imgId}`);
+          return;
+        }
+
+        const food = new (window as any).Food({
+          game: this,
+          type: type,
+          sprite: {
+            image: foodImg,
+            x: 0,
+            y: 0,
+            width: 64,
+            height: 64
+          },
+          position: { x: col * TILE_SIZE, y: row * TILE_SIZE }
+        });
+        
+        this.food.push(food);
+        console.log(`[WORLD_FOOD] Success! Food ${type} added at col:${col}, row:${row}. Total food now: ${this.food.length}`);
+
+      } catch (error) {
+        console.error("[WORLD_FOOD] Critical error in spawnFood:", error);
+      }
+    }
+
+    async spawnHero(gender?: 'male' | 'female') {
+      // Find safe position
+      let row: number, col: number;
+      let attempts = 0;
+      do {
+        row = Math.floor(Math.random() * ROWS);
+        col = Math.floor(Math.random() * COLS);
+        attempts++;
+      } while ((this.world.getTile(this.world.level1.collisionLayer, row, col) === 1 || this.isTileOccupied(row, col)) && attempts < 100);
+
+      if (attempts >= 100) {
+        console.warn("[WORLD_HERO] Could not find empty tile to spawn hero");
+        return;
+      }
+
+      const g = gender || (Math.random() > 0.5 ? 'male' : 'female');
+      const spriteId = g === 'male' ? "hero1" : "hero2";
+
+      // Get name from API or fallback
+      let name = g === 'male' ? "New Guy" : "New Girl";
+      try {
+        const response = await fetch(`https://randomuser.me/api/?gender=${g}&nat=us`);
+        const data = await response.json();
+        const n = data.results[0].name;
+        name = `${n.first} ${n.last}`;
+      } catch (e) {
+        console.error("Failed to fetch name for manual spawn:", e);
+      }
+
+      const newHero = new Hero({
+        game: this,
+        name: name,
+        health: 100,
+        energy: 100,
+        speed: 70 + Math.random() * 20,
+        sprite: {
+          image: document.getElementById(spriteId) as HTMLImageElement,
+          x: 0,
+          y: 0,
+          width: 64,
+          height: 64,
+        },
+        position: { x: col * TILE_SIZE, y: row * TILE_SIZE },
+        scale: 1,
+        gender: g,
+        indicatorColor: g === 'male' ? "119, 212, 255" : "224, 179, 255"
+      });
+
+      this.heroes.push(newHero);
+      (window as any).updateInfoPanelLayout();
+      console.log(`[WORLD_HERO] Manually spawned ${name} at (${col}, ${row})`);
+    }
+
+    isTileOccupied(row: number, col: number, excludeHero?: Hero): boolean {
+      if (!this.heroes) return false;
+
+      // Check for heroes
+      for (const hero of this.heroes) {
+        if (hero === excludeHero || hero.isDead) continue;
+        const hRow = Math.round(hero.position.y / TILE_SIZE);
+        const hCol = Math.round(hero.position.x / TILE_SIZE);
+        if (hRow === row && hCol === col) return true;
+        const dRow = Math.round(hero.destinationPosition.y / TILE_SIZE);
+        const dCol = Math.round(hero.destinationPosition.x / TILE_SIZE);
+        if (dRow === row && dCol === col) return true;
+      }
+
+      // Check for food
+      for (const f of this.food) {
+        const fRow = Math.round(f.position.y / TILE_SIZE);
+        const fCol = Math.round(f.position.x / TILE_SIZE);
+        if (fRow === row && fCol === col) return true;
+      }
+
+      return false;
+    }
   }
   const game = new Game();
+  (window as any).game = game; // Expose for easier console debugging
   let lastTime = 0;
 
   // Set up camera UI controls
@@ -173,6 +344,54 @@ window.addEventListener("load", function () {
     game.camera.zoom = parseFloat(target.value);
   });
 
+  // Set up spawn controls
+  document.getElementById("spawn-small-meal")?.addEventListener("click", () => {
+    console.log("UI_CLICK: Spawn Small Meal button pressed");
+    try {
+      game.spawnFood('fastfood');
+      console.log("UI_CLICK: game.spawnFood('fastfood') call completed");
+    } catch (e) {
+      console.error("UI_CLICK_ERROR: Failed to call spawnFood:", e);
+    }
+  });
+
+  document.getElementById("spawn-large-meal")?.addEventListener("click", () => {
+    console.log("UI_CLICK: Spawn Large Meal button pressed");
+    try {
+      game.spawnFood('meal');
+      console.log("UI_CLICK: game.spawnFood('meal') call completed");
+    } catch (e) {
+      console.error("UI_CLICK_ERROR: Failed to call spawnFood:", e);
+    }
+  });
+
+  document.getElementById("spawn-random-hero")?.addEventListener("click", () => {
+    console.log("UI_CLICK: Spawn Random Hero button pressed");
+    try {
+      game.spawnHero();
+      console.log("UI_CLICK: game.spawnHero() call completed");
+    } catch (e) {
+      console.error("UI_CLICK_ERROR: Failed to call spawnHero:", e);
+    }
+  });
+
+  const autoSpawnBtn = document.getElementById("toggle-auto-spawn");
+  autoSpawnBtn?.addEventListener("click", () => {
+    game.autoSpawnEnabled = !game.autoSpawnEnabled;
+    if (autoSpawnBtn) {
+      autoSpawnBtn.innerText = game.autoSpawnEnabled ? "Pause Auto-Spawn" : "Resume Auto-Spawn";
+      autoSpawnBtn.style.background = game.autoSpawnEnabled ? "#660033" : "#006633";
+      autoSpawnBtn.style.borderColor = game.autoSpawnEnabled ? "#ff0066" : "#00ff66";
+    }
+    console.log(`[WORLD_AUTO_SPAWN] Automatic food spawning ${game.autoSpawnEnabled ? 'resumed' : 'paused'}`);
+  });
+
+  document.getElementById("food-spawn-rate")?.addEventListener("input", (e) => {
+    const target = e.target as HTMLInputElement;
+    game.spawnFrequencyMultiplier = parseFloat(target.value);
+    console.log(`[WORLD_AUTO_SPAWN] Spawn frequency multiplier set to: ${game.spawnFrequencyMultiplier}`);
+  });
+
   const infoPanel = document.getElementById("info-panel") as HTMLDivElement;
 
   const updateInfoPanelLayout = () => {
@@ -187,15 +406,31 @@ window.addEventListener("load", function () {
               ${isActive ? 'Active' : (game.activeHeroIndex === -1 ? 'Select' : 'Set Active')}
             </button>
           </div>
-          <p><span>Health:</span> <span class="stat-value" id="hero-health-${index}">${Math.floor(hero.health)}</span></p>
-          <p><span>Energy:</span> <span class="stat-value" id="hero-energy-${index}">${Math.floor(hero.energy)}</span></p>
-          <p><span>Speed:</span> <span class="stat-value" id="hero-speed-${index}">${hero.moving ? Math.floor(hero.speed) : 0}</span></p>
-          <p><span>Fertility:</span> <span class="stat-value" id="hero-fertility-${index}">${Math.floor(hero.fertilityMeter)}%</span></p>
+          
+          <div class="stat-row">
+            <span>HP</span>
+            <div class="stat-bar-container"><div class="stat-bar-fill health-fill" id="hp-bar-${index}" style="width: ${(hero.health / (hero as any).maxHealth) * 100}%"></div></div>
+          </div>
+          <div class="stat-row">
+            <span>EN</span>
+            <div class="stat-bar-container"><div class="stat-bar-fill energy-fill" id="en-bar-${index}" style="width: ${hero.energy}%"></div></div>
+          </div>
+          <div class="stat-row">
+            <span>FR</span>
+            <div class="stat-bar-container"><div class="stat-bar-fill fertility-fill" id="fr-bar-${index}" style="width: ${hero.fertilityMeter}%"></div></div>
+          </div>
+          <div class="stat-row">
+            <span>AN</span>
+            <div class="stat-bar-container"><div class="stat-bar-fill anger-fill" id="an-bar-${index}" style="width: ${hero.angerMeter}%"></div></div>
+          </div>
+
           <div id="hero-status-${index}" style="color: #ffcc00; font-size: 0.8em; margin-top: 4px; font-weight: bold;"></div>
         </div>
       `}).join('');
     }
   };
+
+  (window as any).updateInfoPanelLayout = updateInfoPanelLayout;
 
   // Initialize Info Panel HTML once
   updateInfoPanelLayout();
@@ -205,13 +440,13 @@ window.addEventListener("load", function () {
     infoPanel.addEventListener('click', (e: MouseEvent) => {
       const target = (e.target as HTMLElement).closest('.active-toggle-btn') as HTMLElement;
       console.log("Clicked info panel, button found:", !!target);
-      
+
       if (target) {
         // Stop the click from registering as a map movement click underneath the UI
         e.stopPropagation();
-        
+
         const index = parseInt(target.getAttribute('data-index') || "0");
-        
+
         // Toggle off if clicking the already-active hero, otherwise set to new index
         if (game.activeHeroIndex === index) {
           console.log(`Toggling OFF active hero (was index ${index})`);
@@ -219,11 +454,11 @@ window.addEventListener("load", function () {
         } else {
           console.log(`Setting active hero to index ${index}`);
           game.activeHeroIndex = index;
-          
+
           // Clear any stale inputs that were queued while no hero was active
           game.input.clearClickPosition();
           game.input.keys = [];
-          
+
           console.log(`Active hero changed to: ${game.heroes[index].name} (Index ${index})`);
         }
       }
@@ -235,6 +470,12 @@ window.addEventListener("load", function () {
     const deltaTime = timestamp - lastTime;
     lastTime = timestamp;
     game.render(ctx, deltaTime);
+
+    // Food Spawning logic (Random intervals)
+    if (game.eventUpdate && game.autoSpawnEnabled && game.spawnFrequencyMultiplier > 0) {
+      if (Math.random() < 0.05 * game.spawnFrequencyMultiplier) game.spawnFood('fastfood');
+      if (Math.random() < 0.01 * game.spawnFrequencyMultiplier) game.spawnFood('meal');
+    }
 
     // Reproduction System Loop
     const readyHeroes = game.heroes.filter(h => h.fertilityMeter >= 80 && !h.isReproducing);
@@ -248,29 +489,43 @@ window.addEventListener("load", function () {
 
         const maleTile = { x: Math.round(male.position.x / TILE_SIZE), y: Math.round(male.position.y / TILE_SIZE) };
         const femaleTile = { x: Math.round(female.position.x / TILE_SIZE), y: Math.round(female.position.y / TILE_SIZE) };
-        
+
         const dist = Math.abs(maleTile.x - femaleTile.x) + Math.abs(maleTile.y - femaleTile.y);
-        
+
         if (dist === 1) {
           // Adjacent and ready!
-          male.startReproducing();
-          female.startReproducing();
-          
+          male.startReproducing(female);
+          female.startReproducing(male);
+
+          // Fetch name from API
+          async function getRandomName(gender: 'male' | 'female'): Promise<string> {
+            try {
+              const response = await fetch(`https://randomuser.me/api/?gender=${gender}&nat=us`);
+              const data = await response.json();
+              const nameData = data.results[0].name;
+              return `${nameData.first} ${nameData.last}`;
+            } catch (e) {
+              console.error("Failed to fetch name from API:", e);
+              return gender === 'male' ? "Junior " + male.name : "Mini " + female.name;
+            }
+          }
+
           // Child spawn callback (simulated after duration)
-          setTimeout(() => {
+          setTimeout(async () => {
             const gender = Math.random() > 0.5 ? 'male' : 'female';
-            const name = gender === 'male' ? "Junior " + male.name : "Mini " + female.name;
+            const name = await getRandomName(gender);
             const spriteId = gender === 'male' ? "hero1" : "hero2";
-            
+
             // Find a nearby empty tile for the baby
-            const directions = [{x:1,y:0}, {x:-1,y:0}, {x:0,y:1}, {x:0,y:-1}];
+            const directions = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }, { x: 1, y: 1 }, { x: -1, y: 1 }, { x: 1, y: -1 }, { x: -1, y: -1 }];
             let babyPos = { x: male.position.x, y: male.position.y };
             for (const d of directions) {
               const testRow = maleTile.y + d.y;
               const testCol = maleTile.x + d.x;
-              if (game.world.getTile(game.world.level1.collisionLayer, testRow, testCol) === 0) {
-                 babyPos = { x: testCol * TILE_SIZE, y: testRow * TILE_SIZE };
-                 break;
+              const isBlocked = game.world.getTile(game.world.level1.collisionLayer, testRow, testCol) === 1;
+              if (!isBlocked && !game.isTileOccupied(testRow, testCol)) {
+                babyPos = { x: testCol * TILE_SIZE, y: testRow * TILE_SIZE };
+                break;
               }
             }
 
@@ -290,47 +545,59 @@ window.addEventListener("load", function () {
               position: babyPos,
               scale: 0.5,
               gender: gender,
+              familyId: male.familyId,
               indicatorColor: gender === 'male' ? "119, 212, 255" : "224, 179, 255"
             });
-            
+
             game.heroes.push(baby);
             updateInfoPanelLayout();
-            console.log(`A new hero was born: ${name}!`);
+            console.log(`[WORLD_REPRO] A new hero was born: ${name}! Family ID: ${male.familyId}`);
           }, 5000);
         } else if (!male.moving && !female.moving) {
-           // Find a tile adjacent to female for male to move to
-           const directions = [{x:1,y:0}, {x:-1,y:0}, {x:0,y:1}, {x:0,y:-1}];
-           for (const d of directions) {
-             const targetTileX = femaleTile.x + d.x;
-             const targetTileY = femaleTile.y + d.y;
-             if (targetTileX >= 0 && targetTileX < COLS && targetTileY >= 0 && targetTileY < ROWS) {
-               if (game.world.getTile(game.world.level1.collisionLayer, targetTileY, targetTileX) === 0) {
-                 male.navigateToTile({ x: targetTileX * TILE_SIZE, y: targetTileY * TILE_SIZE });
-                 break;
-               }
-             }
-           }
+          // Find a tile adjacent to female for male to move to
+          const directions = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }];
+          for (const d of directions) {
+            const targetTileX = femaleTile.x + d.x;
+            const targetTileY = femaleTile.y + d.y;
+            if (targetTileX >= 0 && targetTileX < COLS && targetTileY >= 0 && targetTileY < ROWS) {
+              const isBlocked = game.world.getTile(game.world.level1.collisionLayer, targetTileY, targetTileX) === 1;
+              if (!isBlocked && !game.isTileOccupied(targetTileY, targetTileX)) {
+                male.navigateToTile({ x: targetTileX * TILE_SIZE, y: targetTileY * TILE_SIZE });
+                break;
+              }
+            }
+          }
         }
       }
     }
 
     // Update Info Panel stats dynamically without destroying nodes
     if (infoPanel) {
+      // Remove dead heroes from list and update layout if needed
+      const initialCount = game.heroes.length;
+      game.heroes = game.heroes.filter(h => !h.isDead);
+      if (game.heroes.length !== initialCount) {
+        updateInfoPanelLayout();
+      }
+
       game.heroes.forEach((hero, index) => {
         const isActive = index === game.activeHeroIndex;
 
-        // Update stats
-        const healthEl = document.getElementById(`hero-health-${index}`);
-        if (healthEl) healthEl.innerText = Math.floor(hero.health).toString();
+        // Sync visual bars
+        const hpBar = document.getElementById(`hp-bar-${index}`);
+        if (hpBar) {
+          const maxH = (hero as any).maxHealth || 100;
+          hpBar.style.width = (hero.health / maxH * 100) + "%";
+        }
 
-        const energyEl = document.getElementById(`hero-energy-${index}`);
-        if (energyEl) energyEl.innerText = Math.floor(hero.energy).toString();
+        const enBar = document.getElementById(`en-bar-${index}`);
+        if (enBar) enBar.style.width = hero.energy + "%";
 
-        const speedEl = document.getElementById(`hero-speed-${index}`);
-        if (speedEl) speedEl.innerText = (hero.moving ? Math.floor(hero.speed) : 0).toString();
+        const frBar = document.getElementById(`fr-bar-${index}`);
+        if (frBar) frBar.style.width = hero.fertilityMeter + "%";
 
-        const fertilityEl = document.getElementById(`hero-fertility-${index}`);
-        if (fertilityEl) fertilityEl.innerText = Math.floor(hero.fertilityMeter) + "%";
+        const anBar = document.getElementById(`an-bar-${index}`);
+        if (anBar) anBar.style.width = hero.angerMeter + "%";
 
         const statusEl = document.getElementById(`hero-status-${index}`);
         if (statusEl) {
@@ -354,6 +621,48 @@ window.addEventListener("load", function () {
             btn.innerText = game.activeHeroIndex === -1 ? 'Select' : 'Set Active';
           }
         }
+
+        // --- Autonomous Hero Logic ---
+        if (!hero.moving && !hero.isReproducing) {
+          // 1. Food Seeking (If hungry)
+          if (hero.energy < 30 && game.food.length > 0) {
+            // Find closest food
+            let closestFood = game.food[0];
+            let minDist = Infinity;
+            game.food.forEach(f => {
+              const d = Math.hypot(f.position.x - hero.position.x, f.position.y - hero.position.y);
+              if (d < minDist) {
+                minDist = d;
+                closestFood = f;
+              }
+            });
+            console.log(`[HERO_AI] ${hero.name} is hungry. Seeking ${closestFood.type} at (${closestFood.position.x}, ${closestFood.position.y})`);
+            hero.navigateToTile(closestFood.position);
+          }
+          // 2. Conflict (If angry)
+          else if (hero.angerMeter > 80) {
+            const target = game.heroes.find(h => h !== hero && h.familyId !== hero.familyId && !h.isDead);
+            if (target) {
+              console.log(`[HERO_AI] ${hero.name} is angry. Hunting ${target.name}`);
+              const dist = Math.abs(hero.position.x - target.position.x) + Math.abs(hero.position.y - target.position.y);
+              if (dist <= TILE_SIZE) {
+                hero.attack(target);
+              } else {
+                hero.navigateToTile(target.position);
+              }
+            }
+          }
+        }
+
+        // 3. Collision with Food
+        game.food = game.food.filter(f => {
+          const dist = Math.hypot(f.position.x - hero.position.x, f.position.y - hero.position.y);
+          if (dist < TILE_SIZE * 0.5) {
+            hero.eat(f.type);
+            return false; // Consume food
+          }
+          return true;
+        });
       });
     }
   }

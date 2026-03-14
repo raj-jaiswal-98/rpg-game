@@ -107,6 +107,53 @@
       min-width: 150px;
     }
 
+    #spawn-controls {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.7);
+      border: 2px solid #aa00ff;
+      border-radius: 8px;
+      padding: 15px;
+      color: white;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 100;
+      box-shadow: 0 0 15px rgba(170, 0, 255, 0.5);
+    }
+
+    #spawn-controls h3 {
+      margin: 0 0 5px 0;
+      color: #e0b3ff;
+      font-size: 16px;
+      text-align: center;
+    }
+
+    .spawn-btn {
+      background: #330066;
+      border: 1px solid #aa00ff;
+      color: white;
+      border-radius: 4px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .spawn-btn:hover {
+      background: #aa00ff;
+      box-shadow: 0 0 10px rgba(170, 0, 255, 0.8);
+      transform: translateY(-1px);
+    }
+
+    .spawn-btn:active {
+      transform: translateY(0);
+    }
+
     .hero-info {
       border-bottom: 1px solid rgba(170, 0, 255, 0.3);
       padding-bottom: 10px;
@@ -162,6 +209,37 @@
     .stat-value {
       font-weight: bold;
       color: #fff;
+    }
+
+    .stat-bar-container {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      margin-top: 2px;
+      margin-bottom: 6px;
+      overflow: hidden;
+    }
+
+    .stat-bar-fill {
+      height: 100%;
+      transition: width 0.3s ease;
+    }
+
+    .health-fill {
+      background: #ff4757;
+    }
+
+    .energy-fill {
+      background: #2ed573;
+    }
+
+    .anger-fill {
+      background: #ffa502;
+    }
+
+    .fertility-fill {
+      background: #e0b3ff;
     }
 
     .dpad {
@@ -224,6 +302,19 @@
     </div>
   </div>
 
+  <div id="spawn-controls">
+    <h3>Spawner</h3>
+    <button class="spawn-btn" id="spawn-small-meal">Spawn Small Meal</button>
+    <button class="spawn-btn" id="spawn-large-meal">Spawn Large Meal</button>
+    <button class="spawn-btn" id="spawn-random-hero">Spawn Random Hero</button>
+    <button class="spawn-btn" id="toggle-auto-spawn"
+      style="margin-top: 5px; background: #660033; border-color: #ff0066;">Pause Auto-Spawn</button>
+    <div style="margin-top: 10px; border-top: 1px solid rgba(170, 0, 255, 0.3); padding-top: 10px;">
+      <label for="food-spawn-rate" style="font-size: 12px; color: #e0b3ff;">Spawn Frequency</label>
+      <input type="range" id="food-spawn-rate" min="0" max="5" step="0.5" value="1" style="width: 100%; margin-top: 5px;">
+    </div>
+  </div>
+
   <div id="info-panel">
     <!-- Hero info will be injected here by main.ts -->
   </div>
@@ -233,6 +324,8 @@
     <img src="images/foregroundLevel1.png" id="foregroundLevel1" />
     <img src="images/hero1.png" id="hero1" />
     <img src="images/hero2.png" id="hero2" />
+    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzMiwzMikiID4KICAgIDwhLS0gQm90dG9tIEJ1biAtLT4KICAgIDxwYXRoIGQ9Ik0tMjAgNiBDLTIwIDYgLTIwIDE0IDAgMTQgQzIwIDE0IDIwIDYgMjAgNiBMLTIwIDYgWiIgZmlsbD0iI0Y1QTU0MyIgc3Ryb2tlPSIjM0EwRDA0IiBzdHJva2Utd2lkdGg9IjIiIC8+CiAgICA8IS0tIExldHR1Y2UgLS0+CiAgICA8cGF0aCBkPSJNLTIyIDQgQy0yMiA0IC0yMiAtMiAwIC0yIEMyMiAtMiAyMiA0IDIyIDQgWiIgZmlsbD0iIzQwRkYwMCIgc3Ryb2tlPSIjMEI0NTAwIiBzdHJva2Utd2lkdGg9IjEiIC8+CiAgICA8IS0tIFBhdHR5IC0tPgogICAgPHJlY3QgeD0iLTIxIiB5PSItMiIgd2lkdGg9IjQyIiBoZWlnaHQ9IjgiIHJ4PSI0IiBmaWxsPSIjOEU0NDFDIiBzdHJva2U9IiMzQTBEMDQiIHN0cm9rZS13aWR0aD0iMiIgLz4KICAgIDwhLS0gQ2hlZXNlIC0tPgogICAgPHBhdGggZD0iTS0yMCAtMiBMMjAgLTIgTDIwIDYgTC0yMCA2IFoiIGZpbGw9IiNGRkRDMDAiIC8+CiAgICA8IS0tIFRvcCBCdW4gLS0+CiAgICA8cGF0aCBkPSJNLTIwIC0yIEMtMjAgLTIgLTIwIC0xNiAwIC0xNiBDMjAgLTE2IDIwIC0yIDIwIC0yIFoiIGZpbGw9IiNGNUE1NDMiIHN0cm9rZT0iIzNBMEREMDQiIHN0cm9rZS13aWR0aD0iMiIgLz4KICAgIDwhLS0gU2VzYW1lIFNlZWRzIC0tPgogICAgPGNpcmNsZSBjeD0iLTUiIGN5PSItOSIgcj0iMSIgZmlsbD0id2hpdGUiIC8+CiAgICA8Y2lyY2xlIGN4PSI1IiBjeT0iLTEyIiByPSIxIiBmaWxsPSJ3aGl0ZSIgLz4KICAgIDxjaXJjbGUgY3g9IjQiIGN5PSItNyIgcj0iMSIgZmlsbD0id2hpdGUiIC8+CiAgPC9nPgo8L3N2Zz4=" id="food-burger" />
+    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgzMiwzMikiID4KICAgIDwhLS0gUGxhdGUgLS0+CiAgICA8Y2lyY2xlIHI9IjI0IiBmaWxsPSIjREREREREIiBzdHJva2U9IiNBQUFBQUEiIHN0cm9rZS13aWR0aD0iMiIgLz4KICAgIDxjaXJjbGUgcj0iMjEiIGZpbGw9IndoaXRlIiAvPgogICAgCiAgICA8IS0tIE1lYXQgLyBTdGVhayAtLT4KICAgIDxwYXRoIGQ9Ik0tMTIgLTQgQy0xOCAtNCAtMTggLTggLTggLTggQzggLTggOCAtNCAxMiAtNCBDMTggLTQgMTggMCAxMiAwIEM4IDAgOCAtNCAwIC00IEMtOCAtNCAtOCAtNCAtMTIgLTQgWiIgZmlsbD0iIzk2NEIzOSIgc3Ryb2tlPSIjM0EwRDA0IiBzdHJva2Utd2lkdGg9IjIiIC8+CiAgICAKICAgIDwhLS0gVmVnZ2llcyAocGVhcykgLS0+CiAgICA8Y2lyY2xlIGN4PSItOCIgY3k9IjgiIHI9IjMiIGZpbGw9IiM0NEZGMTIiIC8+CiAgICA8Y2lyY2xlIGN4PSIwIiBjeT0iMTEiIHI9IjMiIGZpbGw9IiM0NEZGMTIiIC8+CiAgICA8Y2lyY2xlIGN4PSI4IiBjeT0iOSIgcj0iMyIgZmlsbD0iIzQ0RkYxMiIgLz4KICAgIAogICAgPCEtLSBQb3RhdG8gLyBNYXNoIC0tPgogICAgPGNpcmNsZSBjeD0iMTQiIGN5PSItOCIgcj0iNiIgZmlsbD0iI0ZGRkZBRCIgc3Ryb2tlPSIjRDNCQTc5IiBzdHJva2Utd2lkdGg9IjEiIC8+CiAgICAKICAgIDwhLS0gR2xhcmUgb24gcGxhdGUgLS0+CiAgICA8cGF0aCBkPSJNLTE4IC0xOCBDLTEwIC0yMiAtNiAtMjIgMiAtMTgiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0VFRUVFRSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIC8+CiAgPC9nPgo8L3N2Zz4=" id="food-meal" />
   </div>
 
   <script type="module" src="main.js"></script>
