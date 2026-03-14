@@ -208,6 +208,16 @@ export class Hero extends GameObject {
     return this.health >= 100 && this.scale >= 1;
   }
 
+  /**
+   * Get the current high-level action state of the hero for UI representation
+   */
+  get currentAction(): 'idle' | 'food' | 'mate' | 'violence' {
+    if (this.angerMeter > 80) return 'violence';
+    if (this.intendedPartner !== null || this.isReproducing) return 'mate';
+    if (this.intendedFoodPos !== null) return 'food';
+    return 'idle';
+  }
+
   update(deltaTime: number): void {
     const scaledSpeed = this.speed * (deltaTime / 1000);
 
