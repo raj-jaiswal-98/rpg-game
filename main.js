@@ -39,8 +39,9 @@ window.addEventListener("load", function () {
                 new Hero({
                     game: this,
                     name: "Majnu",
-                    health: 100,
-                    energy: 100,
+                    health: 50,
+                    maxHealth: 100,
+                    energy: 50,
                     speed: 80,
                     sprite: {
                         image: document.getElementById("hero1"),
@@ -57,8 +58,9 @@ window.addEventListener("load", function () {
                 new Hero({
                     game: this,
                     name: "Laila",
-                    health: 120,
-                    energy: 90,
+                    health: 50,
+                    maxHealth: 100,
+                    energy: 50,
                     speed: 70,
                     sprite: {
                         image: document.getElementById("hero2"),
@@ -75,8 +77,9 @@ window.addEventListener("load", function () {
                 new Hero({
                     game: this,
                     name: "Adam",
-                    health: 100,
-                    energy: 80,
+                    health: 50,
+                    maxHealth: 100,
+                    energy: 50,
                     speed: 75,
                     sprite: {
                         image: document.getElementById("hero1"),
@@ -93,8 +96,9 @@ window.addEventListener("load", function () {
                 new Hero({
                     game: this,
                     name: "Eve",
-                    health: 100,
-                    energy: 80,
+                    health: 50,
+                    maxHealth: 100,
+                    energy: 50,
                     speed: 75,
                     sprite: {
                         image: document.getElementById("hero2"),
@@ -145,8 +149,13 @@ window.addEventListener("load", function () {
                 do {
                     row = Math.floor(Math.random() * ROWS);
                     col = Math.floor(Math.random() * COLS);
+                    const isBlocked = this.world.getTile(this.world.level1.collisionLayer, row, col) === 1;
+                    const hasFood = this.food.some(f => Math.round(f.position.y / TILE_SIZE) === row && Math.round(f.position.x / TILE_SIZE) === col);
+                    const hasHero = this.isTileOccupied(row, col);
+                    if (!isBlocked && !hasFood && !hasHero)
+                        break;
                     attempts++;
-                } while ((this.world.getTile(this.world.level1.collisionLayer, row, col) === 1 || this.isTileOccupied(row, col)) && attempts < 100);
+                } while (attempts < 100);
                 if (attempts >= 100) {
                     console.warn("[WORLD_FOOD] Could not find empty tile to spawn food after 100 attempts");
                     return;
@@ -238,13 +247,6 @@ window.addEventListener("load", function () {
                 const dRow = Math.round(hero.destinationPosition.y / TILE_SIZE);
                 const dCol = Math.round(hero.destinationPosition.x / TILE_SIZE);
                 if (dRow === row && dCol === col)
-                    return true;
-            }
-            // Check for food
-            for (const f of this.food) {
-                const fRow = Math.round(f.position.y / TILE_SIZE);
-                const fCol = Math.round(f.position.x / TILE_SIZE);
-                if (fRow === row && fCol === col)
                     return true;
             }
             return false;
@@ -345,9 +347,12 @@ window.addEventListener("load", function () {
           </div>
           <div class="stat-row">
             <span>AN</span>
-            <div class="stat-bar-container"><div class="stat-bar-fill anger-fill" id="an-bar-${index}" style="width: ${hero.angerMeter}%"></div></div>
+            <div class="stat-bar-container"><div class="stat-bar-fill anger-fill" id="an-bar-${index}" style="background-color: #ff3333; width: ${hero.angerMeter}%"></div></div>
           </div>
-
+          <div class="stat-row">
+            <span>SS</span>
+            <div class="stat-bar-container"><div class="stat-bar-fill social-fill" id="ss-bar-${index}" style="width: ${hero.socialStatus}%"></div></div>
+          </div>
           <div id="hero-status-${index}" style="color: #ffcc00; font-size: 0.8em; margin-top: 4px; font-weight: bold;"></div>
         </div>
       `;
@@ -395,7 +400,10 @@ window.addEventListener("load", function () {
                 game.spawnFood('meal');
         }
         // Reproduction System Loop
-        const readyHeroes = game.heroes.filter(h => h.fertilityMeter >= 80 && !h.isReproducing);
+        // Only adults can reproduce
+        const readyHeroes = game.heroes.filter(h => h.isAdult() && h.fertilityMeter >= 80 && !h.isReproducing);
+        // Sort by social status to give preference
+        readyHeroes.sort((a, b) => b.socialStatus - a.socialStatus);
         const males = readyHeroes.filter(h => h.gender === 'male');
         const females = readyHeroes.filter(h => h.gender === 'female');
         for (const male of males) {
@@ -443,7 +451,8 @@ window.addEventListener("load", function () {
                         const baby = new Hero({
                             game: game,
                             name: name,
-                            health: 50,
+                            health: 25,
+                            maxHealth: 100,
                             energy: 50,
                             speed: 60,
                             sprite: {
@@ -454,7 +463,7 @@ window.addEventListener("load", function () {
                                 height: 64,
                             },
                             position: babyPos,
-                            scale: 0.5,
+                            scale: 0.25,
                             gender: gender,
                             familyId: male.familyId,
                             indicatorColor: gender === 'male' ? "119, 212, 255" : "224, 179, 255"
@@ -481,16 +490,16 @@ window.addEventListener("load", function () {
                 }
             }
         }
-        // Update Info Panel stats dynamically without destroying nodes
-        if (infoPanel) {
-            // Remove dead heroes from list and update layout if needed
-            const initialCount = game.heroes.length;
-            game.heroes = game.heroes.filter(h => !h.isDead);
-            if (game.heroes.length !== initialCount) {
-                updateInfoPanelLayout();
-            }
-            game.heroes.forEach((hero, index) => {
-                const isActive = index === game.activeHeroIndex;
+        // Remove dead heroes from list and update layout if needed
+        const initialCount = game.heroes.length;
+        game.heroes = game.heroes.filter(h => !h.isDead);
+        if (game.heroes.length !== initialCount && infoPanel) {
+            updateInfoPanelLayout();
+        }
+        game.heroes.forEach((hero, index) => {
+            const isActive = index === game.activeHeroIndex;
+            // Update Info Panel stats dynamically
+            if (infoPanel) {
                 // Sync visual bars
                 const hpBar = document.getElementById(`hp-bar-${index}`);
                 if (hpBar) {
@@ -506,6 +515,9 @@ window.addEventListener("load", function () {
                 const anBar = document.getElementById(`an-bar-${index}`);
                 if (anBar)
                     anBar.style.width = hero.angerMeter + "%";
+                const ssBar = document.getElementById(`ss-bar-${index}`);
+                if (ssBar)
+                    ssBar.style.width = hero.socialStatus + "%";
                 const statusEl = document.getElementById(`hero-status-${index}`);
                 if (statusEl) {
                     statusEl.innerText = hero.isReproducing ? "Engaging in reproduction..." : "";
@@ -529,30 +541,60 @@ window.addEventListener("load", function () {
                         btn.innerText = game.activeHeroIndex === -1 ? 'Select' : 'Set Active';
                     }
                 }
-                // --- Autonomous Hero Logic ---
-                if (!hero.moving && !hero.isReproducing) {
-                    // 1. Food Seeking (If hungry)
-                    if (hero.energy < 30 && game.food.length > 0) {
-                        // Find closest food
-                        let closestFood = game.food[0];
-                        let minDist = Infinity;
-                        game.food.forEach(f => {
-                            const d = Math.hypot(f.position.x - hero.position.x, f.position.y - hero.position.y);
-                            if (d < minDist) {
-                                minDist = d;
-                                closestFood = f;
+            }
+            // --- Autonomous Hero Logic ---
+            if (!hero.moving && !hero.isReproducing) {
+                // Priority 1: Survival (Food Seeking)
+                const isStarving = hero.energy < 60; // Increased to seek energy earlier
+                const isInjured = hero.health < 75;
+                // Priority 0: Insane Mode (If anger > 80)
+                if (hero.angerMeter > 80) {
+                    hero.intendedFoodPos = null; // Drop everything else
+                    let closestTarget = null;
+                    // 1. Check food
+                    game.food.forEach(f => {
+                        const d = Math.hypot(f.position.x - hero.position.x, f.position.y - hero.position.y);
+                        if (!closestTarget || d < closestTarget.distance) {
+                            closestTarget = { type: 'food', entity: f, distance: d };
+                        }
+                    });
+                    // 2. Check heroes
+                    game.heroes.forEach(h => {
+                        if (h !== hero && !h.isDead) {
+                            const d = Math.hypot(h.position.x - hero.position.x, h.position.y - hero.position.y);
+                            if (!closestTarget || d < closestTarget.distance) {
+                                if (h.familyId === hero.familyId) {
+                                    closestTarget = { type: 'family', entity: h, distance: d };
+                                }
+                                else {
+                                    closestTarget = { type: 'enemy', entity: h, distance: d };
+                                }
                             }
-                        });
-                        console.log(`[HERO_AI] ${hero.name} is hungry. Seeking ${closestFood.type} at (${closestFood.position.x}, ${closestFood.position.y})`);
-                        hero.navigateToTile(closestFood.position);
-                    }
-                    // 2. Conflict (If angry)
-                    else if (hero.angerMeter > 80) {
-                        const target = game.heroes.find(h => h !== hero && h.familyId !== hero.familyId && !h.isDead);
-                        if (target) {
-                            console.log(`[HERO_AI] ${hero.name} is angry. Hunting ${target.name}`);
+                        }
+                    });
+                    if (closestTarget) {
+                        const ct = closestTarget;
+                        if (game.eventUpdate)
+                            console.log(`[HERO_AI] ${hero.name} is INSANE (Anger > 80)! Seeking closest target: ${ct.type}`);
+                        if (ct.type === 'food') {
+                            hero.intendedFoodPos = ct.entity.position;
+                            hero.navigateToTile(ct.entity.position);
+                        }
+                        else if (ct.type === 'family') {
+                            const target = ct.entity;
                             const dist = Math.abs(hero.position.x - target.position.x) + Math.abs(hero.position.y - target.position.y);
-                            if (dist <= TILE_SIZE) {
+                            if (dist <= TILE_SIZE * 1.5) {
+                                hero.socialize(0.5); // Fast socialize to cool down
+                                target.socialize(0.5);
+                            }
+                            else {
+                                hero.navigateToTile(target.position);
+                            }
+                        }
+                        else if (ct.type === 'enemy') {
+                            const target = ct.entity;
+                            const dist = Math.abs(hero.position.x - target.position.x) + Math.abs(hero.position.y - target.position.y);
+                            if (dist <= TILE_SIZE * 1.5) {
                                 hero.attack(target);
                             }
                             else {
@@ -560,18 +602,114 @@ window.addEventListener("load", function () {
                             }
                         }
                     }
-                }
-                // 3. Collision with Food
-                game.food = game.food.filter(f => {
-                    const dist = Math.hypot(f.position.x - hero.position.x, f.position.y - hero.position.y);
-                    if (dist < TILE_SIZE * 0.5) {
-                        hero.eat(f.type);
-                        return false; // Consume food
+                    else {
+                        // Calm down slowly if no targets exist
+                        hero.angerMeter -= 5;
                     }
-                    return true;
-                });
+                }
+                // Priority 1: Survival (Food Seeking)
+                else if ((isStarving || isInjured) && game.food.length > 0) {
+                    // Find closest food
+                    let closestFood = game.food[0];
+                    let minDist = Infinity;
+                    game.food.forEach(f => {
+                        const d = Math.hypot(f.position.x - hero.position.x, f.position.y - hero.position.y);
+                        if (d < minDist) {
+                            minDist = d;
+                            closestFood = f;
+                        }
+                    });
+                    if (game.eventUpdate) {
+                        console.log(`[HERO_AI] ${hero.name} prioritizing survival (health/energy). Seeking ${closestFood.type} at (${closestFood.position.x / TILE_SIZE}, ${closestFood.position.y / TILE_SIZE})`);
+                    }
+                    else if (!hero.moving) {
+                        // Log once when they start moving toward food if we aren't in an event update frame
+                        console.log(`[HERO_AI] ${hero.name} found nearest food and has started moving towards it.`);
+                    }
+                    hero.intendedFoodPos = closestFood.position;
+                    hero.navigateToTile(closestFood.position);
+                }
+                // Priority 2: Socialization & Reproduction (Only if healthy & energetic)
+                else if (hero.energy > 75 && hero.health >= 75) {
+                    hero.intendedFoodPos = null;
+                    let closestFriend = null;
+                    let minDist = Infinity;
+                    // Find closest hero who is also idle and willing to socialize
+                    game.heroes.forEach(h => {
+                        if (h !== hero && !h.isDead && h.energy > 75 && h.health >= 75 && !h.isReproducing) {
+                            const d = Math.hypot(h.position.x - hero.position.x, h.position.y - hero.position.y);
+                            if (d < minDist) {
+                                minDist = d;
+                                closestFriend = h;
+                            }
+                        }
+                    });
+                    if (closestFriend) {
+                        const friend = closestFriend;
+                        const dist = Math.hypot(friend.position.x - hero.position.x, friend.position.y - hero.position.y);
+                        if (dist < TILE_SIZE * 1.5) {
+                            hero.socialize(0.1); // Small increase per frame while near
+                            friend.socialize(0.1);
+                            if (game.eventUpdate)
+                                console.log(`[HERO_AI] ${hero.name} is socializing with ${friend.name}`);
+                        }
+                        else {
+                            hero.navigateToTile(friend.position);
+                            if (game.eventUpdate && !hero.moving) {
+                                console.log(`[HERO_AI] ${hero.name} is heading to socialize with ${friend.name}`);
+                            }
+                        }
+                    }
+                    else if (Math.random() < 0.01) {
+                        // Random walk / Explore
+                        const targetX = Math.floor(Math.random() * COLS) * TILE_SIZE;
+                        const targetY = Math.floor(Math.random() * ROWS) * TILE_SIZE;
+                        hero.navigateToTile({ x: targetX, y: targetY });
+                    }
+                }
+                // Priority 3: Conflict (If angry)
+                else if (hero.angerMeter > 80) {
+                    hero.intendedFoodPos = null; // Reset if switching priorities
+                    const target = game.heroes.find(h => h !== hero && h.familyId !== hero.familyId && !h.isDead);
+                    if (target) {
+                        if (game.eventUpdate)
+                            console.log(`[HERO_AI] ${hero.name} is angry. Hunting ${target.name}`);
+                        const dist = Math.abs(hero.position.x - target.position.x) + Math.abs(hero.position.y - target.position.y);
+                        if (dist <= TILE_SIZE) {
+                            hero.attack(target);
+                        }
+                        else {
+                            hero.navigateToTile(target.position);
+                        }
+                    }
+                }
+            }
+        });
+        // --- Global Food Consumption (More robust) ---
+        game.food = game.food.filter(f => {
+            let consumed = false;
+            game.heroes.forEach(h => {
+                if (!consumed && !h.isDead) {
+                    const dist = Math.hypot(f.position.x - h.position.x, f.position.y - h.position.y);
+                    if (dist < TILE_SIZE * 0.8) { // Increased radius for reliability
+                        h.eat(f.type);
+                        h.intendedFoodPos = null;
+                        consumed = true;
+                        // Trigger anger in rivals who were targeting this food
+                        game.heroes.forEach(rival => {
+                            if (rival !== h && !rival.isDead && rival.intendedFoodPos && rival.intendedFoodPos.x === f.position.x && rival.intendedFoodPos.y === f.position.y) {
+                                rival.angerMeter += 40;
+                                if (rival.angerMeter > 100)
+                                    rival.angerMeter = 100;
+                                console.log(`[HERO_AI] ${rival.name} is furious! ${h.name} ate their targeted food!`);
+                                rival.intendedFoodPos = null; // Targeted food is gone
+                            }
+                        });
+                    }
+                }
             });
-        }
+            return !consumed;
+        });
     }
     requestAnimationFrame(animate);
 });
