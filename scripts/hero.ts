@@ -26,6 +26,9 @@ interface HeroConfig {
   gender?: 'male' | 'female';
   familyId?: string;
   socialStatus?: number;
+  fertilityMeter?: number;
+  angerMeter?: number;
+  isDead?: boolean;
 }
 
 interface Game {
@@ -87,6 +90,9 @@ export class Hero extends GameObject {
     gender = 'female',
     familyId = Math.random().toString(36).substr(2, 9),
     socialStatus = 0,
+    fertilityMeter = 50,
+    angerMeter = 0,
+    isDead = false,
   }: HeroConfig) {
     super({ game, sprite, position, scale });
     this.game = game;
@@ -100,10 +106,10 @@ export class Hero extends GameObject {
     this.gender = gender;
     this.familyId = familyId;
     this.socialStatus = socialStatus;
-    this.fertilityMeter = 50;
-    this.angerMeter = 0;
+    this.fertilityMeter = fertilityMeter;
+    this.angerMeter = angerMeter;
     this.isReproducing = false;
-    this.isDead = false;
+    this.isDead = isDead;
     this.intendedFoodPos = null;
     this.reproductionTimer = 0;
     this.maxFrame = 8;

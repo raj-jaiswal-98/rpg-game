@@ -4,6 +4,7 @@ import { Hero } from "./scripts/hero.js";
 import { Camera } from "./scripts/camera.js";
 import { Food } from "./scripts/food.js";
 import { VisualIndicator } from "./scripts/visualIndicator.js";
+import { PersistenceManager } from "./scripts/persistence.js";
 
 // Make Food available to the spawner until we refactor into modules etc.
 (window as any).Food = Food;
@@ -92,84 +93,120 @@ window.addEventListener("load", function () {
         return { x: col * TILE_SIZE, y: row * TILE_SIZE };
       };
 
-      this.heroes = [
-        new Hero({
+      const savedHeroes = PersistenceManager.loadHeroes();
+
+      if (savedHeroes && savedHeroes.length > 0) {
+        this.heroes = savedHeroes.map(data => new Hero({
           game: this,
-          name: "Majnu",
-          health: 50,
-          maxHealth: 100,
-          energy: 50,
-          speed: 80,
+          name: data.name,
+          health: data.health,
+          maxHealth: data.maxHealth,
+          maxEnergy: data.maxEnergy,
+          energy: data.energy,
+          speed: data.speed,
+          indicatorColor: data.indicatorColor,
+          gender: data.gender,
+          familyId: data.familyId,
+          socialStatus: data.socialStatus,
+          position: { ...data.position },
+          scale: data.scale,
+          fertilityMeter: data.fertilityMeter,
+          angerMeter: data.angerMeter,
+          isDead: data.isDead,
           sprite: {
-            image: document.getElementById("hero1") as HTMLImageElement,
+            image: document.getElementById(data.spriteId || (data.gender === 'male' ? 'hero1' : 'hero2')) as HTMLImageElement,
             x: 0,
             y: 0,
             width: 64,
             height: 64,
-          },
-          position: getRandomSafePosition(),
-          scale: 1,
-          indicatorColor: "119, 212, 255", // Cyan for Majnu
-          gender: 'male',
-        }),
-        new Hero({
-          game: this,
-          name: "Laila",
-          health: 50,
-          maxHealth: 100,
-          energy: 50,
-          speed: 70,
-          sprite: {
-            image: document.getElementById("hero2") as HTMLImageElement,
-            x: 0,
-            y: 0,
-            width: 64,
-            height: 64
-          },
-          position: getRandomSafePosition(),
-          scale: 1,
-          indicatorColor: "224, 179, 255", // Purple for Laila
-          gender: 'female',
-        }),
-        new Hero({
-          game: this,
-          name: "Adam",
-          health: 50,
-          maxHealth: 100,
-          energy: 50,
-          speed: 75,
-          sprite: {
-            image: document.getElementById("hero1") as HTMLImageElement,
-            x: 0,
-            y: 0,
-            width: 64,
-            height: 64
-          },
-          position: getRandomSafePosition(),
-          scale: 1,
-          indicatorColor: "255, 100, 100",
-          gender: 'male',
-        }),
-        new Hero({
-          game: this,
-          name: "Eve",
-          health: 50,
-          maxHealth: 100,
-          energy: 50,
-          speed: 75,
-          sprite: {
-            image: document.getElementById("hero2") as HTMLImageElement,
-            x: 0,
-            y: 0,
-            width: 64,
-            height: 64
-          },
-          position: getRandomSafePosition(),
-          scale: 1,
-          indicatorColor: "255, 150, 200",
-          gender: 'female',
-        })
-      ];
+          }
+        }));
+      } else {
+        this.heroes = [
+          new Hero({
+            game: this,
+            name: "Majnu",
+            health: 50,
+            maxHealth: 100,
+            energy: 50,
+            speed: 80,
+            sprite: {
+              image: document.getElementById("hero1") as HTMLImageElement,
+              x: 0,
+              y: 0,
+              width: 64,
+              height: 64,
+            },
+            position: getRandomSafePosition(),
+            scale: 1,
+            indicatorColor: "119, 212, 255", // Cyan for Majnu
+            gender: 'male',
+          }),
+          new Hero({
+            game: this,
+            name: "Laila",
+            health: 50,
+            maxHealth: 100,
+            energy: 50,
+            speed: 70,
+            sprite: {
+              image: document.getElementById("hero2") as HTMLImageElement,
+              x: 0,
+              y: 0,
+              width: 64,
+              height: 64
+            },
+            position: getRandomSafePosition(),
+            scale: 1,
+            indicatorColor: "224, 179, 255", // Purple for Laila
+            gender: 'female',
+          }),
+          new Hero({
+            game: this,
+            name: "Adam",
+            health: 50,
+            maxHealth: 100,
+            energy: 50,
+            speed: 75,
+            sprite: {
+              image: document.getElementById("hero1") as HTMLImageElement,
+              x: 0,
+              y: 0,
+              width: 64,
+              height: 64
+            },
+            position: getRandomSafePosition(),
+            scale: 1,
+            indicatorColor: "255, 100, 100",
+            gender: 'male',
+          }),
+          new Hero({
+            game: this,
+            name: "Eve",
+            health: 50,
+            maxHealth: 100,
+            energy: 50,
+            speed: 75,
+            sprite: {
+              image: document.getElementById("hero2") as HTMLImageElement,
+              x: 0,
+              y: 0,
+              width: 64,
+              height: 64
+            },
+            position: getRandomSafePosition(),
+            scale: 1,
+            indicatorColor: "255, 150, 200",
+            gender: 'female',
+          })
+        ];
+      }
+
+      // Auto-save every 5 seconds
+      setInterval(() => {
+        PersistenceManager.saveHeroes(this.heroes);
+        PersistenceManager.saveWorldState(this);
+      }, 5000);
       this.input = new Input();
       this.camera = new Camera(0, 0, 1);
 
@@ -177,6 +214,33 @@ window.addEventListener("load", function () {
       this.eventTimer = 0;
       this.eventInterval = 50;
       this.debug = true; // Set to true for diagnostics
+
+      // Load world state
+      const savedWorld = PersistenceManager.loadWorldState();
+      if (savedWorld) {
+        this.camera.x = savedWorld.camera.x;
+        this.camera.y = savedWorld.camera.y;
+        this.camera.zoom = savedWorld.camera.zoom;
+        this.activeHeroIndex = savedWorld.activeHeroIndex;
+        this.autoSpawnEnabled = savedWorld.autoSpawnEnabled;
+        this.spawnFrequencyMultiplier = savedWorld.spawnFrequencyMultiplier;
+        
+        // Restore food
+        savedWorld.food.forEach((fData: any) => {
+          const imgId = fData.type === 'fastfood' ? "food-burger" : "food-meal";
+          const foodImg = document.getElementById(imgId) as HTMLImageElement;
+          if (foodImg) {
+            this.food.push(new (window as any).Food({
+              game: this,
+              type: fData.type,
+              sprite: { image: foodImg, x: 0, y: 0, width: 64, height: 64 },
+              position: { x: fData.position.x, y: fData.position.y }
+            }));
+          }
+        });
+        
+        console.log(`[WORLD] Restored ${this.food.length} food items and camera settings.`);
+      }
     }
     render(ctx: CanvasRenderingContext2D, deltaTime: number) {
       this.heroes.forEach(h => h.update(deltaTime));
@@ -807,4 +871,8 @@ window.addEventListener("load", function () {
   }
   requestAnimationFrame(animate);
 
+  window.addEventListener("beforeunload", () => {
+    PersistenceManager.saveHeroes(game.heroes);
+    PersistenceManager.saveWorldState(game);
+  });
 });
