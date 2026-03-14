@@ -13,7 +13,8 @@
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc",
-    "dev": "concurrently \"tsc --watch\" \"live-server dist --port=3000 --open=index.html --wait=500\"",
+    "copy-assets": "node -e \"const fs=require('fs'); fs.mkdirSync('dist', {recursive:true}); fs.cpSync('index.html', 'dist/index.html'); fs.cpSync('images', 'dist/images', {recursive:true, force:true})\"",
+    "dev": "npm run build && npm run copy-assets && concurrently \"tsc --watch\" \"live-server dist --port=3000 --open=index.html --wait=500\"",
     "lint": "eslint *.ts scripts/*.ts",
     "lint:fix": "eslint *.ts scripts/*.ts --fix",
     "format": "prettier --write \"*.ts\" \"scripts/*.ts\" \"*.html\" \"*.json\"",

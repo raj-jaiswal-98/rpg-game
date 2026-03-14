@@ -29,6 +29,9 @@ jobs:
           cp index.html dist/
           cp -r images dist/
 
+      - name: Add base href for GitHub Pages
+        run: sed -i 's|<head>|<head>\n    <base href="/rpg-game/" />|' dist/index.html
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
