@@ -17,29 +17,40 @@ window.addEventListener("load", function () {
     class Game {
         constructor() {
             this.world = new World();
-            this.hero = new Hero({
-                game: this,
-                sprite: {
-                    image: document.getElementById("hero1"),
-                    x: 0,
-                    y: 0,
-                    width: 64,
-                    height: 64,
-                },
-                position: { x: 1 * TILE_SIZE, y: 2 * TILE_SIZE },
-                scale: 1,
-            });
-            // this.hero2 = new Hero({
-            //     game: this,
-            //     sprite:{
-            //         image: document.getElementById('hero2'),
-            //         x: 0,
-            //         y: 0,
-            //         width: 64,
-            //         height: 64
-            //     },
-            //     position: { x: 3 * TILE_SIZE, y: 19 * TILE_SIZE },
-            // });
+            this.heroes = [
+                new Hero({
+                    game: this,
+                    name: "Hero 1",
+                    health: 100,
+                    energy: 100,
+                    speed: 80,
+                    sprite: {
+                        image: document.getElementById("hero1"),
+                        x: 0,
+                        y: 0,
+                        width: 64,
+                        height: 64,
+                    },
+                    position: { x: 1 * TILE_SIZE, y: 2 * TILE_SIZE },
+                    scale: 1,
+                }),
+                new Hero({
+                    game: this,
+                    name: "Hero 2",
+                    health: 120,
+                    energy: 90,
+                    speed: 70,
+                    sprite: {
+                        image: document.getElementById("hero2"),
+                        x: 0,
+                        y: 0,
+                        width: 64,
+                        height: 64
+                    },
+                    position: { x: 3 * TILE_SIZE, y: 19 * TILE_SIZE },
+                    scale: 1,
+                })
+            ];
             this.input = new Input();
             this.camera = new Camera(0, 0, 1);
             this.eventUpdate = false;
@@ -48,13 +59,13 @@ window.addEventListener("load", function () {
             this.debug = false;
         }
         render(ctx, deltaTime) {
-            this.hero.update(deltaTime);
+            this.heroes.forEach(h => h.update(deltaTime));
             ctx.save();
             ctx.scale(this.camera.zoom, this.camera.zoom);
             ctx.translate(-this.camera.x, -this.camera.y);
             this.world.drawBackground(ctx);
-            this.hero.draw(ctx);
-            this.hero.drawTargetIndicator(ctx);
+            this.heroes.forEach(h => h.draw(ctx));
+            this.heroes.forEach(h => h.drawTargetIndicator(ctx));
             this.world.drawForeground(ctx);
             ctx.restore();
             if (this.eventTimer < this.eventInterval) {
@@ -87,13 +98,23 @@ window.addEventListener("load", function () {
         const target = e.target;
         game.camera.zoom = parseFloat(target.value);
     });
+    const infoPanel = document.getElementById("info-panel");
     function animate(timestamp) {
         requestAnimationFrame(animate);
         const deltaTime = timestamp - lastTime;
         lastTime = timestamp;
-        // console.log(deltaTime);
         game.render(ctx, deltaTime);
-        // console.log("Animating...");
+        // Update Info Panel
+        if (infoPanel) {
+            infoPanel.innerHTML = game.heroes.map(hero => `
+        <div class="hero-info">
+          <h3>${hero.name}</h3>
+          <p><span>Health:</span> <span class="stat-value">${Math.floor(hero.health)}</span></p>
+          <p><span>Energy:</span> <span class="stat-value">${Math.floor(hero.energy)}</span></p>
+          <p><span>Speed:</span> <span class="stat-value">${Math.floor(hero.speed)}</span></p>
+        </div>
+      `).join('');
+        }
     }
     requestAnimationFrame(animate);
 });

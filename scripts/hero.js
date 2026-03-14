@@ -1,14 +1,18 @@
 import { UP, RIGHT, DOWN, LEFT } from "./input.js";
 import { GameObject } from "./gameObject.js";
-import { TILE_SIZE } from "../main.js";
+import { TILE_SIZE, HALF_TILE } from "../main.js";
 import { Pathfinder } from "./pathfinder.js";
 import { CollisionChecker } from "./collision.js";
 import { Toast } from "./toast.js";
 import { VisualIndicator } from "./visualIndicator.js";
 export class Hero extends GameObject {
-    constructor({ game, sprite, position, scale, }) {
+    constructor({ game, sprite, position, scale, name = "Hero", health = 100, maxEnergy = 100, energy = 100, speed = 75, }) {
         super({ game, sprite, position, scale });
-        this.speed = 75;
+        this.name = name;
+        this.health = health;
+        this.maxEnergy = maxEnergy;
+        this.energy = energy;
+        this.speed = speed;
         this.maxFrame = 8;
         this.moving = false;
         this.targetPosition = null;
@@ -133,12 +137,30 @@ export class Hero extends GameObject {
                 this.visualIndicator.clear();
             }
         }
-        // Update moving state
+        // Update moving state and drain energy
         if (this.game.input.keys.length > 0 || !arrived || this.path.length > 0) {
             this.moving = true;
+            if (this.energy > 0) {
+                // Drain energy subtly (e.g., 5 energy units per second)
+                this.energy -= deltaTime / 1000 * 5;
+                if (this.energy < 0)
+                    this.energy = 0;
+            }
+            else {
+                // Stop moving if no energy left
+                this.moving = false;
+                this.path = [];
+                this.visualIndicator.clear();
+            }
         }
         else {
             this.moving = false;
+            // Passive energy regen when standing still? Maybe optional.
+            if (this.energy < this.maxEnergy) {
+                this.energy += deltaTime / 1000 * 2;
+                if (this.energy > this.maxEnergy)
+                    this.energy = this.maxEnergy;
+            }
         }
         // Update animation
         if (this.game.eventUpdate && this.moving) {
@@ -185,6 +207,23 @@ export class Hero extends GameObject {
      */
     drawTargetIndicator(ctx) {
         this.visualIndicator.draw(ctx);
+    }
+    /**
+     * Override draw to add the name above the hero's head
+     */
+    draw(ctx) {
+        super.draw(ctx);
+        // Draw name
+        ctx.save();
+        ctx.fillStyle = "white";
+        ctx.font = "bold 12px sans-serif";
+        ctx.textAlign = "center";
+        ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+        ctx.shadowBlur = 4;
+        ctx.lineWidth = 2;
+        // Position text just above the character's bounding box center
+        ctx.fillText(this.name, this.position.x + HALF_TILE, this.position.y - 10);
+        ctx.restore();
     }
 }
 //# sourceMappingURL=hero.js.map
