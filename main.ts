@@ -98,6 +98,7 @@ window.addEventListener("load", function () {
           position: getRandomSafePosition(),
           scale: 1,
           indicatorColor: "119, 212, 255", // Cyan for Majnu
+          gender: 'male',
         }),
         new Hero({
           game: this,
@@ -115,6 +116,7 @@ window.addEventListener("load", function () {
           position: getRandomSafePosition(),
           scale: 1,
           indicatorColor: "224, 179, 255", // Purple for Laila
+          gender: 'female',
         })
       ];
       this.input = new Input();
@@ -173,28 +175,34 @@ window.addEventListener("load", function () {
 
   const infoPanel = document.getElementById("info-panel") as HTMLDivElement;
 
-  // Initialize Info Panel HTML once
-  if (infoPanel) {
-    infoPanel.innerHTML = game.heroes.map((hero, index) => {
-      const isActive = index === game.activeHeroIndex;
-      return `
-      <div class="hero-info ${isActive ? 'active-hero' : ''}" id="hero-info-${index}">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-          <h3 style="margin: 0;">${hero.name}</h3>
-          <button class="active-toggle-btn ${isActive ? 'is-active' : ''}" id="hero-btn-${index}" data-index="${index}">
-            ${isActive ? 'Active' : (game.activeHeroIndex === -1 ? 'Select' : 'Set Active')}
-          </button>
+  const updateInfoPanelLayout = () => {
+    if (infoPanel) {
+      infoPanel.innerHTML = game.heroes.map((hero, index) => {
+        const isActive = index === game.activeHeroIndex;
+        return `
+        <div class="hero-info ${isActive ? 'active-hero' : ''}" id="hero-info-${index}">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+            <h3 style="margin: 0;">${hero.name}</h3>
+            <button class="active-toggle-btn ${isActive ? 'is-active' : ''}" id="hero-btn-${index}" data-index="${index}">
+              ${isActive ? 'Active' : (game.activeHeroIndex === -1 ? 'Select' : 'Set Active')}
+            </button>
+          </div>
+          <p><span>Health:</span> <span class="stat-value" id="hero-health-${index}">${Math.floor(hero.health)}</span></p>
+          <p><span>Energy:</span> <span class="stat-value" id="hero-energy-${index}">${Math.floor(hero.energy)}</span></p>
+          <p><span>Speed:</span> <span class="stat-value" id="hero-speed-${index}">${hero.moving ? Math.floor(hero.speed) : 0}</span></p>
+          <p><span>Fertility:</span> <span class="stat-value" id="hero-fertility-${index}">${Math.floor(hero.fertilityMeter)}%</span></p>
+          <div id="hero-status-${index}" style="color: #ffcc00; font-size: 0.8em; margin-top: 4px; font-weight: bold;"></div>
         </div>
-        <p><span>Health:</span> <span class="stat-value" id="hero-health-${index}">${Math.floor(hero.health)}</span></p>
-        <p><span>Energy:</span> <span class="stat-value" id="hero-energy-${index}">${Math.floor(hero.energy)}</span></p>
-        <p><span>Speed:</span> <span class="stat-value" id="hero-speed-${index}">${hero.moving ? Math.floor(hero.speed) : 0}</span></p>
-      </div>
-    `}).join('');
-  }
+      `}).join('');
+    }
+  };
+
+  // Initialize Info Panel HTML once
+  updateInfoPanelLayout();
 
   // Use event delegation for the toggle buttons outside the loop
   if (infoPanel) {
-    infoPanel.addEventListener('click', (e) => {
+    infoPanel.addEventListener('click', (e: MouseEvent) => {
       const target = (e.target as HTMLElement).closest('.active-toggle-btn') as HTMLElement;
       console.log("Clicked info panel, button found:", !!target);
       
@@ -228,6 +236,84 @@ window.addEventListener("load", function () {
     lastTime = timestamp;
     game.render(ctx, deltaTime);
 
+    // Reproduction System Loop
+    const readyHeroes = game.heroes.filter(h => h.fertilityMeter >= 80 && !h.isReproducing);
+    const males = readyHeroes.filter(h => h.gender === 'male');
+    const females = readyHeroes.filter(h => h.gender === 'female');
+
+    for (const male of males) {
+      for (const female of females) {
+        // Check if they are already reproducing together (implicit via timer)
+        if (male.isReproducing || female.isReproducing) continue;
+
+        const maleTile = { x: Math.round(male.position.x / TILE_SIZE), y: Math.round(male.position.y / TILE_SIZE) };
+        const femaleTile = { x: Math.round(female.position.x / TILE_SIZE), y: Math.round(female.position.y / TILE_SIZE) };
+        
+        const dist = Math.abs(maleTile.x - femaleTile.x) + Math.abs(maleTile.y - femaleTile.y);
+        
+        if (dist === 1) {
+          // Adjacent and ready!
+          male.startReproducing();
+          female.startReproducing();
+          
+          // Child spawn callback (simulated after duration)
+          setTimeout(() => {
+            const gender = Math.random() > 0.5 ? 'male' : 'female';
+            const name = gender === 'male' ? "Junior " + male.name : "Mini " + female.name;
+            const spriteId = gender === 'male' ? "hero1" : "hero2";
+            
+            // Find a nearby empty tile for the baby
+            const directions = [{x:1,y:0}, {x:-1,y:0}, {x:0,y:1}, {x:0,y:-1}];
+            let babyPos = { x: male.position.x, y: male.position.y };
+            for (const d of directions) {
+              const testRow = maleTile.y + d.y;
+              const testCol = maleTile.x + d.x;
+              if (game.world.getTile(game.world.level1.collisionLayer, testRow, testCol) === 0) {
+                 babyPos = { x: testCol * TILE_SIZE, y: testRow * TILE_SIZE };
+                 break;
+              }
+            }
+
+            const baby = new Hero({
+              game: game,
+              name: name,
+              health: 50,
+              energy: 50,
+              speed: 60,
+              sprite: {
+                image: document.getElementById(spriteId) as HTMLImageElement,
+                x: 0,
+                y: 0,
+                width: 64,
+                height: 64,
+              },
+              position: babyPos,
+              scale: 0.5,
+              gender: gender,
+              indicatorColor: gender === 'male' ? "119, 212, 255" : "224, 179, 255"
+            });
+            
+            game.heroes.push(baby);
+            updateInfoPanelLayout();
+            console.log(`A new hero was born: ${name}!`);
+          }, 5000);
+        } else if (!male.moving && !female.moving) {
+           // Find a tile adjacent to female for male to move to
+           const directions = [{x:1,y:0}, {x:-1,y:0}, {x:0,y:1}, {x:0,y:-1}];
+           for (const d of directions) {
+             const targetTileX = femaleTile.x + d.x;
+             const targetTileY = femaleTile.y + d.y;
+             if (targetTileX >= 0 && targetTileX < COLS && targetTileY >= 0 && targetTileY < ROWS) {
+               if (game.world.getTile(game.world.level1.collisionLayer, targetTileY, targetTileX) === 0) {
+                 male.navigateToTile({ x: targetTileX * TILE_SIZE, y: targetTileY * TILE_SIZE });
+                 break;
+               }
+             }
+           }
+        }
+      }
+    }
+
     // Update Info Panel stats dynamically without destroying nodes
     if (infoPanel) {
       game.heroes.forEach((hero, index) => {
@@ -242,6 +328,14 @@ window.addEventListener("load", function () {
 
         const speedEl = document.getElementById(`hero-speed-${index}`);
         if (speedEl) speedEl.innerText = (hero.moving ? Math.floor(hero.speed) : 0).toString();
+
+        const fertilityEl = document.getElementById(`hero-fertility-${index}`);
+        if (fertilityEl) fertilityEl.innerText = Math.floor(hero.fertilityMeter) + "%";
+
+        const statusEl = document.getElementById(`hero-status-${index}`);
+        if (statusEl) {
+          statusEl.innerText = hero.isReproducing ? "Engaging in reproduction..." : "";
+        }
 
         // Update UI dynamic styling
         const infoDiv = document.getElementById(`hero-info-${index}`);

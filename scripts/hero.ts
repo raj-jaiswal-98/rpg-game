@@ -22,6 +22,7 @@ interface HeroConfig {
   energy?: number;
   speed?: number;
   indicatorColor?: string;
+  gender?: 'male' | 'female';
 }
 
 interface Game {
@@ -53,7 +54,12 @@ export class Hero extends GameObject {
   isBlocked: boolean;
   waitTimer: number;
   blockedRetryCount: number;
+  gender: 'male' | 'female';
+  fertilityMeter: number;
+  isReproducing: boolean;
+  reproductionTimer: number;
   private readonly WAIT_THRESHOLD: number;
+  private readonly REPRODUCTION_DURATION = 5000; // 5 seconds
 
   constructor({
     game,
@@ -63,9 +69,10 @@ export class Hero extends GameObject {
     name = "Laila",
     health = 100,
     maxEnergy = 100,
-    energy = 100,
+    energy = 50,
     speed = 75,
     indicatorColor = "255, 68, 68",
+    gender = 'female',
   }: HeroConfig) {
     super({ game, sprite, position, scale });
     this.name = name;
@@ -74,6 +81,10 @@ export class Hero extends GameObject {
     this.energy = energy;
     this.speed = speed;
     this.indicatorColor = indicatorColor;
+    this.gender = gender;
+    this.fertilityMeter = 50;
+    this.isReproducing = false;
+    this.reproductionTimer = 0;
     this.maxFrame = 8;
     this.moving = false;
     this.targetPosition = null;
@@ -298,10 +309,23 @@ export class Hero extends GameObject {
     }
 
     // Update animation
-    if (this.game.eventUpdate && this.moving && !this.isBlocked) {
+    if (this.game.eventUpdate && this.moving && !this.isBlocked && !this.isReproducing) {
       this.sprite.x < this.maxFrame ? this.sprite.x++ : (this.sprite.x = 0);
-    } else if (!this.moving || this.isBlocked) {
+    } else if (!this.moving || this.isBlocked || this.isReproducing) {
       this.sprite.x = 0;
+    }
+
+    // Reproduction logic
+    if (this.isReproducing) {
+      this.reproductionTimer -= deltaTime;
+      if (this.reproductionTimer <= 0) {
+        this.isReproducing = false;
+        this.fertilityMeter = 0;
+      }
+    } else if (!this.moving && this.energy > 50) {
+      // Increase fertility when idle and energetic
+      this.fertilityMeter += deltaTime / 1000 * 2; // +2 per second
+      if (this.fertilityMeter > 100) this.fertilityMeter = 100;
     }
   }
 
@@ -366,6 +390,17 @@ export class Hero extends GameObject {
         this.targetPosition = this.path[0];
       }
     }
+  }
+
+  /**
+   * Start reproduction activity
+   */
+  startReproducing(): void {
+    this.isReproducing = true;
+    this.reproductionTimer = this.REPRODUCTION_DURATION;
+    this.moving = false;
+    this.path = [];
+    this.visualIndicator.clear();
   }
 
   /**
