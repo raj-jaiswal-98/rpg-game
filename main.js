@@ -407,7 +407,23 @@ window.addEventListener("load", function () {
         game.spawnFrequencyMultiplier = parseFloat(target.value);
         console.log(`[WORLD_AUTO_SPAWN] Spawn frequency multiplier set to: ${game.spawnFrequencyMultiplier}`);
     });
+    const topStatsPanel = document.getElementById("top-stats-panel");
     const infoPanel = document.getElementById("info-panel");
+    const updateTopStatsPanel = (totalHeroes, totalFamilies) => {
+        if (topStatsPanel) {
+            topStatsPanel.innerHTML = `
+        <div class="top-stat-title">🌍 2D World Sim</div>
+        <div class="top-stat-item" title="Alive Heroes">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2ed573" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          <span style="color: #2ed573;">${totalHeroes}</span> Heroes
+        </div>
+        <div class="top-stat-item" title="Active Families">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e0b3ff" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          <span style="color: #e0b3ff;">${totalFamilies}</span> Families
+        </div>
+      `;
+        }
+    };
     const updateInfoPanelLayout = () => {
         if (infoPanel) {
             // Group heroes by familyId
@@ -470,6 +486,8 @@ window.addEventListener("load", function () {
         `;
             }
             infoPanel.innerHTML = htmlContent;
+            // Also update the top panel layout while we have the pre-calculated families map
+            updateTopStatsPanel(game.heroes.length, Object.keys(families).length);
         }
     };
     window.updateInfoPanelLayout = updateInfoPanelLayout;
