@@ -6,8 +6,6 @@ import { Food } from "./scripts/food.js";
 import { VisualIndicator } from "./scripts/visualIndicator.js";
 import { PersistenceManager } from "./scripts/persistence.js";
 
-// Make Food available to the spawner until we refactor into modules etc.
-(window as any).Food = Food;
 
 export const TILE_SIZE = 32;
 export const ROWS = 20;
@@ -66,7 +64,7 @@ window.addEventListener("load", function () {
   class Game {
     world!: World;
     heroes!: Hero[];
-    food: any[] = [];
+    food: Food[] = [];
     activeHeroIndex!: number;
     input!: Input;
     camera!: Camera;
@@ -234,7 +232,7 @@ window.addEventListener("load", function () {
           const imgId = fData.type === 'fastfood' ? "food-burger" : "food-meal";
           const foodImg = document.getElementById(imgId) as HTMLImageElement;
           if (foodImg) {
-            this.food.push(new (window as any).Food({
+            this.food.push(new Food({
               game: this,
               type: fData.type,
               sprite: { image: foodImg, x: 0, y: 0, width: 64, height: 64 },
@@ -254,7 +252,11 @@ window.addEventListener("load", function () {
       ctx.translate(-this.camera.x, -this.camera.y);
 
       this.world.drawBackground(ctx);
+      
+      this.food.forEach(f => f.update(deltaTime));
+      this.food = this.food.filter(f => !f.isExpired);
       this.food.forEach(f => f.draw(ctx));
+      
       this.heroes.forEach(h => h.draw(ctx));
       this.heroes.forEach(h => h.drawTargetIndicator(ctx));
       this.world.drawForeground(ctx);
@@ -300,7 +302,7 @@ window.addEventListener("load", function () {
           return;
         }
 
-        const food = new (window as any).Food({
+        const food = new Food({
           game: this,
           type: type,
           sprite: {
@@ -570,8 +572,8 @@ window.addEventListener("load", function () {
     lastTime = timestamp;
     game.render(ctx, deltaTime);
 
-    // Food Spawning logic (Random intervals)
-    if (game.eventUpdate && game.autoSpawnEnabled && game.spawnFrequencyMultiplier > 0) {
+    // Food Spawning logic (Random intervals) - Capped at 15 items
+    if (game.eventUpdate && game.autoSpawnEnabled && game.spawnFrequencyMultiplier > 0 && game.food.length < 15) {
       if (Math.random() < 0.05 * game.spawnFrequencyMultiplier) game.spawnFood('fastfood');
       if (Math.random() < 0.01 * game.spawnFrequencyMultiplier) game.spawnFood('meal');
     }
