@@ -16,6 +16,7 @@ interface Position {
 interface Game {
   world: any;
   input: any;
+  camera: any;
   eventUpdate: boolean;
   eventTimer: number;
   eventInterval: number;

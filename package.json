@@ -19,13 +19,14 @@
     "lint:fix": "eslint *.ts scripts/*.ts --fix",
     "format": "prettier --write \"*.ts\" \"scripts/*.ts\" \"*.html\" \"*.json\"",
     "format:check": "prettier --check \"*.ts\" \"scripts/*.ts\" \"*.html\" \"*.json\"",
-    "test": "echo \"No tests specified\" && exit 0"
+    "test": "vitest run"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
     "eslint": "^10.0.3",
     "live-server": "^1.2.2",
     "prettier": "^3.8.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
   }
 }

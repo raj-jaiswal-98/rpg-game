@@ -1,6 +1,7 @@
 import { Input } from "./scripts/input.js";
 import World from "./scripts/world.js";
 import { Hero } from "./scripts/hero.js";
+import { Camera } from "./scripts/camera.js";
 
 export const TILE_SIZE = 32;
 export const ROWS = 20;
@@ -41,6 +42,7 @@ interface Game {
   world: World;
   hero: Hero;
   input: Input;
+  camera: Camera;
   eventUpdate: boolean;
   eventTimer: number;
   eventInterval: number;
@@ -58,6 +60,7 @@ window.addEventListener("load", function () {
     world!: World;
     hero!: Hero;
     input!: Input;
+    camera!: Camera;
     eventUpdate!: boolean;
     eventTimer!: number;
     eventInterval!: number;
@@ -89,6 +92,7 @@ window.addEventListener("load", function () {
       //     position: { x: 3 * TILE_SIZE, y: 19 * TILE_SIZE },
       // });
       this.input = new Input();
+      this.camera = new Camera(0, 0, 1);
 
       this.eventUpdate = false;
       this.eventTimer = 0;
@@ -97,14 +101,17 @@ window.addEventListener("load", function () {
     }
     render(ctx: CanvasRenderingContext2D, deltaTime: number) {
       this.hero.update(deltaTime);
-      // this.hero2.update(deltaTime);
+      
+      ctx.save();
+      ctx.scale(this.camera.zoom, this.camera.zoom);
+      ctx.translate(-this.camera.x, -this.camera.y);
+
       this.world.drawBackground(ctx);
-      // this.world.drawGrid(ctx);
       this.hero.draw(ctx);
-      // this.hero2.draw(ctx);
       this.hero.drawTargetIndicator(ctx);
       this.world.drawForeground(ctx);
-      // this.world.drawCollisionGrid(ctx);
+
+      ctx.restore();
 
       if (this.eventTimer < this.eventInterval) {
         this.eventTimer += deltaTime;
@@ -117,6 +124,26 @@ window.addEventListener("load", function () {
   }
   const game = new Game();
   let lastTime = 0;
+
+  // Set up camera UI controls
+  const panSpeed = 20;
+
+  document.getElementById("camera-up")?.addEventListener("click", () => game.camera.y -= panSpeed);
+  document.getElementById("camera-down")?.addEventListener("click", () => game.camera.y += panSpeed);
+  document.getElementById("camera-left")?.addEventListener("click", () => game.camera.x -= panSpeed);
+  document.getElementById("camera-right")?.addEventListener("click", () => game.camera.x += panSpeed);
+  document.getElementById("camera-reset")?.addEventListener("click", () => {
+    game.camera.x = 0;
+    game.camera.y = 0;
+    game.camera.zoom = 1;
+    const zoomSlider = document.getElementById("camera-zoom") as HTMLInputElement;
+    if (zoomSlider) zoomSlider.value = "1";
+  });
+
+  document.getElementById("camera-zoom")?.addEventListener("input", (e) => {
+    const target = e.target as HTMLInputElement;
+    game.camera.zoom = parseFloat(target.value);
+  });
 
   function animate(timestamp: number) {
     requestAnimationFrame(animate);

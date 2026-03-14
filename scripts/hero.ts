@@ -14,6 +14,7 @@ interface Position {
 interface Game {
   world: any;
   input: any;
+  camera: any;
   eventUpdate: boolean;
   eventTimer: number;
   eventInterval: number;
@@ -116,12 +117,12 @@ export class Hero extends GameObject {
 
     // Handle mouse click to navigate to destination
     if (this.game.input.clickPosition) {
-      const clickX = this.game.input.clickPosition.x;
-      const clickY = this.game.input.clickPosition.y;
+      // Convert raw screen click to world coordinates
+      const worldClick = this.game.camera.screenToWorld(this.game.input.clickPosition);
 
       const targetPos = {
-        x: Math.floor(clickX / TILE_SIZE) * TILE_SIZE,
-        y: Math.floor(clickY / TILE_SIZE) * TILE_SIZE,
+        x: Math.floor(worldClick.x / TILE_SIZE) * TILE_SIZE,
+        y: Math.floor(worldClick.y / TILE_SIZE) * TILE_SIZE,
       };
 
       const { row, col } = this.collisionChecker.getTileCoordinates(targetPos);
