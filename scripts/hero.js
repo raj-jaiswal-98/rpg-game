@@ -6,28 +6,55 @@ import { CollisionChecker } from "./collision.js";
 import { Toast } from "./toast.js";
 import { VisualIndicator } from "./visualIndicator.js";
 export class Hero extends GameObject {
-    constructor({ game, sprite, position, scale, name = "Hero", health = 100, maxEnergy = 100, energy = 100, speed = 75, }) {
+    constructor({ game, sprite, position, scale, name = "Laila", health = 100, maxEnergy = 100, energy = 100, speed = 75, indicatorColor = "255, 68, 68", }) {
         super({ game, sprite, position, scale });
         this.name = name;
         this.health = health;
         this.maxEnergy = maxEnergy;
         this.energy = energy;
         this.speed = speed;
+        this.indicatorColor = indicatorColor;
         this.maxFrame = 8;
         this.moving = false;
         this.targetPosition = null;
         this.path = [];
+        this.isBlocked = false;
+        this.waitTimer = 0;
+        this.blockedRetryCount = 0;
+        // Add 0-500ms jitter to prevent synchronized re-pathing
+        this.WAIT_THRESHOLD = 1000 + Math.random() * 500;
+        const isTileOccupied = (row, col) => {
+            if (!this.game || !this.game.heroes)
+                return false;
+            for (const other of this.game.heroes) {
+                if (other === this)
+                    continue;
+                // Check other hero's current position
+                const otherRow = Math.round(other.position.y / TILE_SIZE);
+                const otherCol = Math.round(other.position.x / TILE_SIZE);
+                if (row === otherRow && col === otherCol)
+                    return true;
+                // Check other hero's next immediate tile destination
+                const destRow = Math.round(other.destinationPosition.y / TILE_SIZE);
+                const destCol = Math.round(other.destinationPosition.x / TILE_SIZE);
+                if (row === destRow && col === destCol)
+                    return true;
+            }
+            return false;
+        };
         // Initialize pathfinding and collision checking
         this.collisionChecker = new CollisionChecker({
             collisionLayer: this.game.world.level1.collisionLayer,
             getTile: this.game.world.getTile.bind(this.game.world),
+            isTileOccupied,
         });
         this.pathfinder = new Pathfinder({
             collisionLayer: this.game.world.level1.collisionLayer,
             getTile: this.game.world.getTile.bind(this.game.world),
+            isTileOccupied,
         });
         // Initialize visual indicator for target tile
-        this.visualIndicator = new VisualIndicator();
+        this.visualIndicator = new VisualIndicator(this.indicatorColor);
     }
     /**
      * Navigate towards a target tile by calculating and following the optimal path
@@ -40,6 +67,10 @@ export class Hero extends GameObject {
         }
         // Set visual indicator for the target tile
         this.visualIndicator.setTarget(targetPos);
+        // Reset blocked state
+        this.isBlocked = false;
+        this.waitTimer = 0;
+        this.blockedRetryCount = 0;
         // Calculate path and start following it
         this.path = this.pathfinder.findPath(this.position, targetPos);
         if (this.path.length > 0) {
@@ -74,10 +105,12 @@ export class Hero extends GameObject {
     }
     update(deltaTime) {
         const scaledSpeed = this.speed * (deltaTime / 1000);
+        const activeIndex = this.game.activeHeroIndex;
+        const isActive = activeIndex !== -1 && this.game.heroes[activeIndex] === this;
         // Update visual indicator animation
         this.visualIndicator.update(deltaTime);
         // Handle mouse click to navigate to destination
-        if (this.game.input.clickPosition) {
+        if (isActive && this.game.input.clickPosition) {
             // Convert raw screen click to world coordinates
             const worldClick = this.game.camera.screenToWorld(this.game.input.clickPosition);
             const targetPos = {
@@ -85,13 +118,30 @@ export class Hero extends GameObject {
                 y: Math.floor(worldClick.y / TILE_SIZE) * TILE_SIZE,
             };
             const { row, col } = this.collisionChecker.getTileCoordinates(targetPos);
-            // Check if target tile is blocked
+            // Check if target tile is blocked by world or current positions of others
             if (!this.collisionChecker.isPositionWalkable(targetPos)) {
                 Toast.error(`Cannot navigate to blocked tile (${col}, ${row})`);
             }
             else {
-                // Target is walkable, proceed with navigation
-                this.navigateToTile(targetPos);
+                // Also check if someone else is already targeting this EXACT tile
+                let finalTargetBlocked = false;
+                for (const other of this.game.heroes) {
+                    if (other === this || !other.targetPosition)
+                        continue;
+                    const otherTargetRow = Math.round(other.targetPosition.y / TILE_SIZE);
+                    const otherTargetCol = Math.round(other.targetPosition.x / TILE_SIZE);
+                    if (row === otherTargetRow && col === otherTargetCol) {
+                        finalTargetBlocked = true;
+                        break;
+                    }
+                }
+                if (finalTargetBlocked) {
+                    Toast.error(`Another hero is already headed to tile (${col}, ${row})`);
+                }
+                else {
+                    // Target is walkable and unreserved, proceed with navigation
+                    this.navigateToTile(targetPos);
+                }
             }
             this.game.input.clearClickPosition();
         }
@@ -100,53 +150,75 @@ export class Hero extends GameObject {
         const arrived = distance < scaledSpeed;
         if (arrived) {
             // Keyboard input takes priority - clear path and indicator when keyboard is used
-            if (this.game.input.lastKey === UP) {
+            if (isActive && this.game.input.lastKey === UP) {
                 if (this.tryMove(0, -1, 8)) {
                     this.path = [];
                     this.visualIndicator.clear();
                     console.log("Moving up...");
+                    this.isBlocked = false;
+                    this.blockedRetryCount = 0;
+                }
+                else {
+                    this.isBlocked = true;
                 }
             }
-            else if (this.game.input.lastKey === RIGHT) {
+            else if (isActive && this.game.input.lastKey === RIGHT) {
                 if (this.tryMove(1, 0, 11)) {
                     this.path = [];
                     this.visualIndicator.clear();
                     console.log("Moving right...");
+                    this.isBlocked = false;
+                    this.blockedRetryCount = 0;
+                }
+                else {
+                    this.isBlocked = true;
                 }
             }
-            else if (this.game.input.lastKey === DOWN) {
+            else if (isActive && this.game.input.lastKey === DOWN) {
                 if (this.tryMove(0, 1, 10)) {
                     this.path = [];
                     this.visualIndicator.clear();
                     console.log("Moving down...");
+                    this.isBlocked = false;
+                    this.blockedRetryCount = 0;
+                }
+                else {
+                    this.isBlocked = true;
                 }
             }
-            else if (this.game.input.lastKey === LEFT) {
+            else if (isActive && this.game.input.lastKey === LEFT) {
                 if (this.tryMove(-1, 0, 9)) {
                     this.path = [];
                     this.visualIndicator.clear();
                     console.log("Moving left...");
+                    this.isBlocked = false;
+                    this.blockedRetryCount = 0;
+                }
+                else {
+                    this.isBlocked = true;
                 }
             }
             // Follow calculated path if no keyboard input
             else if (this.path.length > 0) {
-                this.followPath();
+                this.followPath(deltaTime);
             }
             else {
                 // Path complete, clear indicator
+                this.isBlocked = false;
+                this.blockedRetryCount = 0;
                 this.visualIndicator.clear();
             }
         }
         // Update moving state and drain energy
-        if (this.game.input.keys.length > 0 || !arrived || this.path.length > 0) {
+        if ((isActive && this.game.input.keys.length > 0) || !arrived || this.path.length > 0) {
             this.moving = true;
-            if (this.energy > 0) {
-                // Drain energy subtly (e.g., 5 energy units per second)
+            if (this.energy > 0 && !this.isBlocked) {
+                // Drain energy subtly (e.g., 5 energy units per second) only if actually moving
                 this.energy -= deltaTime / 1000 * 5;
                 if (this.energy < 0)
                     this.energy = 0;
             }
-            else {
+            else if (this.energy <= 0) {
                 // Stop moving if no energy left
                 this.moving = false;
                 this.path = [];
@@ -163,34 +235,65 @@ export class Hero extends GameObject {
             }
         }
         // Update animation
-        if (this.game.eventUpdate && this.moving) {
+        if (this.game.eventUpdate && this.moving && !this.isBlocked) {
             this.sprite.x < this.maxFrame ? this.sprite.x++ : (this.sprite.x = 0);
         }
-        else if (!this.moving) {
+        else if (!this.moving || this.isBlocked) {
             this.sprite.x = 0;
         }
     }
     /**
      * Follow the calculated path one tile at a time
+     * @param deltaTime Time elapsed since last frame
      */
-    followPath() {
+    followPath(deltaTime) {
         if (this.path.length === 0)
             return;
         const nextTile = this.path[0];
         const { row: nextRow, col: nextCol } = this.collisionChecker.getTileCoordinates(nextTile);
         const { row: currentRow, col: currentCol } = this.collisionChecker.getTileCoordinates(this.position);
         // Move to the next tile in the path
+        let moveSuccessful = false;
         if (currentCol < nextCol) {
-            this.tryMove(1, 0, 11); // Right
+            moveSuccessful = this.tryMove(1, 0, 11); // Right
         }
         else if (currentCol > nextCol) {
-            this.tryMove(-1, 0, 9); // Left
+            moveSuccessful = this.tryMove(-1, 0, 9); // Left
         }
         else if (currentRow < nextRow) {
-            this.tryMove(0, 1, 10); // Down
+            moveSuccessful = this.tryMove(0, 1, 10); // Down
         }
         else if (currentRow > nextRow) {
-            this.tryMove(0, -1, 8); // Up
+            moveSuccessful = this.tryMove(0, -1, 8); // Up
+        }
+        if (!moveSuccessful) {
+            this.isBlocked = true;
+            this.waitTimer += deltaTime;
+            // If blocked for long enough, try to re-path
+            if (this.waitTimer >= this.WAIT_THRESHOLD) {
+                this.blockedRetryCount++;
+                console.log(`${this.name} is blocked (Retry ${this.blockedRetryCount}). Attempting to re-path...`);
+                const finalTarget = this.visualIndicator.getTarget();
+                if (finalTarget) {
+                    // If we've retried many times, maybe the path is truly blocked
+                    if (this.blockedRetryCount > 3) {
+                        console.log(`${this.name} is permanently blocked. Giving up move.`);
+                        this.visualIndicator.clear();
+                        this.path = [];
+                        this.isBlocked = false;
+                        this.blockedRetryCount = 0;
+                    }
+                    else {
+                        this.navigateToTile(finalTarget);
+                    }
+                }
+                this.waitTimer = 0; // Reset timer after re-path attempt
+            }
+        }
+        else {
+            this.isBlocked = false;
+            this.waitTimer = 0;
+            this.blockedRetryCount = 0;
         }
         // Remove the current tile from path once we move to it
         const { row: newRow, col: newCol } = this.collisionChecker.getTileCoordinates(this.destinationPosition);
@@ -206,6 +309,7 @@ export class Hero extends GameObject {
      * @param ctx Canvas rendering context
      */
     drawTargetIndicator(ctx) {
+        // Keep indicator drawn even if hero is not active, until target is reached
         this.visualIndicator.draw(ctx);
     }
     /**

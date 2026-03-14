@@ -18,7 +18,13 @@ export class CollisionChecker {
             return false;
         }
         const tileValue = this.world.getTile(this.world.collisionLayer, row, col);
-        return tileValue === 0; // 0 = walkable, 1 = blocked/collision
+        if (tileValue !== 0)
+            return false; // 0 = walkable
+        // Check if another entity is occupying this tile
+        if (this.world.isTileOccupied && this.world.isTileOccupied(row, col)) {
+            return false;
+        }
+        return true;
     }
     /**
      * Check if a position (in pixels) is walkable

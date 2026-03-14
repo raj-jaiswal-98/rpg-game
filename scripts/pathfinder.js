@@ -76,7 +76,13 @@ export class Pathfinder {
      */
     isWalkable(row, col) {
         const tileValue = this.config.getTile(this.config.collisionLayer, row, col);
-        return tileValue === 0; // 0 = walkable, 1 = blocked
+        if (tileValue !== 0)
+            return false; // 0 = walkable
+        // Check if another entity is occupying this tile
+        if (this.config.isTileOccupied && this.config.isTileOccupied(row, col)) {
+            return false;
+        }
+        return true;
     }
     /**
      * Check if a specific tile position is walkable
