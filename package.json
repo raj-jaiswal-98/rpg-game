@@ -13,7 +13,7 @@
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc",
-    "dev": "concurrently \"tsc --watch\" \"live-server --port=3000 --open=./ --wait=500\"",
+    "dev": "concurrently \"tsc --watch\" \"live-server dist --port=3000 --open=index.html --wait=500\"",
     "lint": "eslint *.ts scripts/*.ts",
     "lint:fix": "eslint *.ts scripts/*.ts --fix",
     "format": "prettier --write \"*.ts\" \"scripts/*.ts\" \"*.html\" \"*.json\"",
