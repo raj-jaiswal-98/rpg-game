@@ -5,6 +5,8 @@ export const RIGHT = "RIGHT";
 export class Input {
     constructor() {
         this.keys = [];
+        this.clickPosition = null;
+        this.canvas = document.getElementById("canvas");
         window.addEventListener("keydown", (e) => {
             // console.log(e);
             if (e.key === "ArrowUp" || e.key.toLowerCase() === "w") {
@@ -35,6 +37,36 @@ export class Input {
                 this.keyReleased(RIGHT);
             }
         });
+        if (this.canvas) {
+            this.canvas.addEventListener("click", (e) => {
+                this.handleCanvasClick(e);
+            });
+            this.canvas.addEventListener("touchend", (e) => {
+                this.handleCanvasTouch(e);
+            });
+        }
+    }
+    handleCanvasClick(e) {
+        if (!this.canvas)
+            return;
+        const rect = this.canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        this.clickPosition = { x, y };
+        console.log("Clicked at pixel position:", x, y);
+    }
+    handleCanvasTouch(e) {
+        if (!this.canvas || !e.changedTouches.length)
+            return;
+        const rect = this.canvas.getBoundingClientRect();
+        const touch = e.changedTouches[0];
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+        this.clickPosition = { x, y };
+        console.log("Touched at pixel position:", x, y);
+    }
+    clearClickPosition() {
+        this.clickPosition = null;
     }
     keyPressed(key) {
         if (this.keys.indexOf(key) === -1) {

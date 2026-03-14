@@ -52,6 +52,7 @@ window.addEventListener("load", function () {
             // this.world.drawGrid(ctx);
             this.hero.draw(ctx);
             // this.hero2.draw(ctx);
+            this.hero.drawTargetIndicator(ctx);
             this.world.drawForeground(ctx);
             // this.world.drawCollisionGrid(ctx);
             if (this.eventTimer < this.eventInterval) {
