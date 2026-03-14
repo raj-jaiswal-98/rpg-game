@@ -59,6 +59,7 @@ window.addEventListener("load", function () {
   class Game {
     world!: World;
     heroes!: Hero[];
+    activeHeroIndex!: number;
     input!: Input;
     camera!: Camera;
     eventUpdate!: boolean;
@@ -68,10 +69,22 @@ window.addEventListener("load", function () {
 
     constructor() {
       this.world = new World();
+      this.activeHeroIndex = -1;
+
+      // Helper to generate a random walkable coordinate
+      const getRandomSafePosition = (): Position => {
+         let row, col;
+         do {
+            row = Math.floor(Math.random() * ROWS);
+            col = Math.floor(Math.random() * COLS);
+         } while (this.world.getTile(this.world.level1.collisionLayer, row, col) === 1);
+         return { x: col * TILE_SIZE, y: row * TILE_SIZE };
+      };
+
       this.heroes = [
         new Hero({
           game: this,
-          name: "Hero 1",
+          name: "Majnu",
           health: 100,
           energy: 100,
           speed: 80,
@@ -82,24 +95,26 @@ window.addEventListener("load", function () {
             width: 64,
             height: 64,
           },
-          position: { x: 1 * TILE_SIZE, y: 2 * TILE_SIZE },
+          position: getRandomSafePosition(),
           scale: 1,
+          indicatorColor: "119, 212, 255", // Cyan for Majnu
         }),
         new Hero({
           game: this,
-          name: "Hero 2",
+          name: "Laila",
           health: 120,
           energy: 90,
           speed: 70,
           sprite: {
-             image: document.getElementById("hero2") as HTMLImageElement,
-             x: 0,
-             y: 0,
-             width: 64,
-             height: 64
+            image: document.getElementById("hero2") as HTMLImageElement,
+            x: 0,
+            y: 0,
+            width: 64,
+            height: 64
           },
-          position: { x: 3 * TILE_SIZE, y: 19 * TILE_SIZE },
+          position: getRandomSafePosition(),
           scale: 1,
+          indicatorColor: "224, 179, 255", // Purple for Laila
         })
       ];
       this.input = new Input();
@@ -112,7 +127,7 @@ window.addEventListener("load", function () {
     }
     render(ctx: CanvasRenderingContext2D, deltaTime: number) {
       this.heroes.forEach(h => h.update(deltaTime));
-      
+
       ctx.save();
       ctx.scale(this.camera.zoom, this.camera.zoom);
       ctx.translate(-this.camera.x, -this.camera.y);
@@ -158,23 +173,96 @@ window.addEventListener("load", function () {
 
   const infoPanel = document.getElementById("info-panel") as HTMLDivElement;
 
+  // Initialize Info Panel HTML once
+  if (infoPanel) {
+    infoPanel.innerHTML = game.heroes.map((hero, index) => {
+      const isActive = index === game.activeHeroIndex;
+      return `
+      <div class="hero-info ${isActive ? 'active-hero' : ''}" id="hero-info-${index}">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+          <h3 style="margin: 0;">${hero.name}</h3>
+          <button class="active-toggle-btn ${isActive ? 'is-active' : ''}" id="hero-btn-${index}" data-index="${index}">
+            ${isActive ? 'Active' : (game.activeHeroIndex === -1 ? 'Select' : 'Set Active')}
+          </button>
+        </div>
+        <p><span>Health:</span> <span class="stat-value" id="hero-health-${index}">${Math.floor(hero.health)}</span></p>
+        <p><span>Energy:</span> <span class="stat-value" id="hero-energy-${index}">${Math.floor(hero.energy)}</span></p>
+        <p><span>Speed:</span> <span class="stat-value" id="hero-speed-${index}">${hero.moving ? Math.floor(hero.speed) : 0}</span></p>
+      </div>
+    `}).join('');
+  }
+
+  // Use event delegation for the toggle buttons outside the loop
+  if (infoPanel) {
+    infoPanel.addEventListener('click', (e) => {
+      const target = (e.target as HTMLElement).closest('.active-toggle-btn') as HTMLElement;
+      console.log("Clicked info panel, button found:", !!target);
+      
+      if (target) {
+        // Stop the click from registering as a map movement click underneath the UI
+        e.stopPropagation();
+        
+        const index = parseInt(target.getAttribute('data-index') || "0");
+        
+        // Toggle off if clicking the already-active hero, otherwise set to new index
+        if (game.activeHeroIndex === index) {
+          console.log(`Toggling OFF active hero (was index ${index})`);
+          game.activeHeroIndex = -1;
+        } else {
+          console.log(`Setting active hero to index ${index}`);
+          game.activeHeroIndex = index;
+          
+          // Clear any stale inputs that were queued while no hero was active
+          game.input.clearClickPosition();
+          game.input.keys = [];
+          
+          console.log(`Active hero changed to: ${game.heroes[index].name} (Index ${index})`);
+        }
+      }
+    });
+  }
+
   function animate(timestamp: number) {
     requestAnimationFrame(animate);
     const deltaTime = timestamp - lastTime;
     lastTime = timestamp;
     game.render(ctx, deltaTime);
 
-    // Update Info Panel
+    // Update Info Panel stats dynamically without destroying nodes
     if (infoPanel) {
-      infoPanel.innerHTML = game.heroes.map(hero => `
-        <div class="hero-info">
-          <h3>${hero.name}</h3>
-          <p><span>Health:</span> <span class="stat-value">${Math.floor(hero.health)}</span></p>
-          <p><span>Energy:</span> <span class="stat-value">${Math.floor(hero.energy)}</span></p>
-          <p><span>Speed:</span> <span class="stat-value">${Math.floor(hero.speed)}</span></p>
-        </div>
-      `).join('');
+      game.heroes.forEach((hero, index) => {
+        const isActive = index === game.activeHeroIndex;
+
+        // Update stats
+        const healthEl = document.getElementById(`hero-health-${index}`);
+        if (healthEl) healthEl.innerText = Math.floor(hero.health).toString();
+
+        const energyEl = document.getElementById(`hero-energy-${index}`);
+        if (energyEl) energyEl.innerText = Math.floor(hero.energy).toString();
+
+        const speedEl = document.getElementById(`hero-speed-${index}`);
+        if (speedEl) speedEl.innerText = (hero.moving ? Math.floor(hero.speed) : 0).toString();
+
+        // Update UI dynamic styling
+        const infoDiv = document.getElementById(`hero-info-${index}`);
+        if (infoDiv) {
+          if (isActive) infoDiv.classList.add('active-hero');
+          else infoDiv.classList.remove('active-hero');
+        }
+
+        const btn = document.getElementById(`hero-btn-${index}`);
+        if (btn) {
+          if (isActive) {
+            btn.classList.add('is-active');
+            btn.innerText = 'Active';
+          } else {
+            btn.classList.remove('is-active');
+            btn.innerText = game.activeHeroIndex === -1 ? 'Select' : 'Set Active';
+          }
+        }
+      });
     }
   }
   requestAnimationFrame(animate);
+
 });

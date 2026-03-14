@@ -13,11 +13,13 @@ export class VisualIndicator {
   private blinkTimer: number;
   private isVisible: boolean;
   private readonly BLINK_INTERVAL = 500; // milliseconds
+  private rgbColor: string;
 
-  constructor() {
+  constructor(rgbColor: string = "255, 68, 68") {
     this.targetPosition = null;
     this.blinkTimer = 0;
     this.isVisible = true;
+    this.rgbColor = rgbColor;
   }
 
   /**
@@ -74,15 +76,15 @@ export class VisualIndicator {
     const x = this.targetPosition.x;
     const y = this.targetPosition.y;
 
-    // Draw blinking red stroke around the tile
-    ctx.strokeStyle = "#ff4444";
+    // Draw blinking stroke around the tile
+    ctx.strokeStyle = `rgb(${this.rgbColor})`;
     ctx.lineWidth = 3;
     ctx.globalAlpha = 0.8;
     ctx.strokeRect(x + 2, y + 2, TILE_SIZE - 4, TILE_SIZE - 4);
     ctx.globalAlpha = 1.0;
 
-    // Draw a subtle red fill when visible
-    ctx.fillStyle = "rgba(255, 68, 68, 0.15)";
+    // Draw a subtle fill when visible
+    ctx.fillStyle = `rgba(${this.rgbColor}, 0.15)`;
     ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
   }
 }

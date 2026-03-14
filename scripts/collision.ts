@@ -8,6 +8,7 @@ export interface Position {
 export interface CollisionLayer {
   getTile: (array: number[], row: number, col: number) => number;
   collisionLayer: number[];
+  isTileOccupied?: (row: number, col: number) => boolean;
 }
 
 /**
@@ -33,7 +34,14 @@ export class CollisionChecker {
     }
 
     const tileValue = this.world.getTile(this.world.collisionLayer, row, col);
-    return tileValue === 0; // 0 = walkable, 1 = blocked/collision
+    if (tileValue !== 0) return false; // 0 = walkable
+    
+    // Check if another entity is occupying this tile
+    if (this.world.isTileOccupied && this.world.isTileOccupied(row, col)) {
+      return false;
+    }
+    
+    return true;
   }
 
   /**
