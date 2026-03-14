@@ -1,3 +1,5 @@
+[![Deploy to GitHub Pages](https://github.com/raj-jaiswal-98/rpg-game/actions/workflows/deploy.yml/badge.svg)](https://github.com/raj-jaiswal-98/rpg-game/actions/workflows/deploy.yml)
+
 # 2D World RPG
 
 A simple 2D RPG game built with HTML5 Canvas and TypeScript.
