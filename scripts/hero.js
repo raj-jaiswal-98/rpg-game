@@ -6,14 +6,19 @@ import { CollisionChecker } from "./collision.js";
 import { Toast } from "./toast.js";
 import { VisualIndicator } from "./visualIndicator.js";
 export class Hero extends GameObject {
-    constructor({ game, sprite, position, scale, name = "Laila", health = 100, maxEnergy = 100, energy = 100, speed = 75, indicatorColor = "255, 68, 68", }) {
+    constructor({ game, sprite, position, scale, name = "Laila", health = 100, maxEnergy = 100, energy = 50, speed = 75, indicatorColor = "255, 68, 68", gender = 'female', }) {
         super({ game, sprite, position, scale });
+        this.REPRODUCTION_DURATION = 5000; // 5 seconds
         this.name = name;
         this.health = health;
         this.maxEnergy = maxEnergy;
         this.energy = energy;
         this.speed = speed;
         this.indicatorColor = indicatorColor;
+        this.gender = gender;
+        this.fertilityMeter = 50;
+        this.isReproducing = false;
+        this.reproductionTimer = 0;
         this.maxFrame = 8;
         this.moving = false;
         this.targetPosition = null;
@@ -235,11 +240,25 @@ export class Hero extends GameObject {
             }
         }
         // Update animation
-        if (this.game.eventUpdate && this.moving && !this.isBlocked) {
+        if (this.game.eventUpdate && this.moving && !this.isBlocked && !this.isReproducing) {
             this.sprite.x < this.maxFrame ? this.sprite.x++ : (this.sprite.x = 0);
         }
-        else if (!this.moving || this.isBlocked) {
+        else if (!this.moving || this.isBlocked || this.isReproducing) {
             this.sprite.x = 0;
+        }
+        // Reproduction logic
+        if (this.isReproducing) {
+            this.reproductionTimer -= deltaTime;
+            if (this.reproductionTimer <= 0) {
+                this.isReproducing = false;
+                this.fertilityMeter = 0;
+            }
+        }
+        else if (!this.moving && this.energy > 50) {
+            // Increase fertility when idle and energetic
+            this.fertilityMeter += deltaTime / 1000 * 2; // +2 per second
+            if (this.fertilityMeter > 100)
+                this.fertilityMeter = 100;
         }
     }
     /**
@@ -303,6 +322,16 @@ export class Hero extends GameObject {
                 this.targetPosition = this.path[0];
             }
         }
+    }
+    /**
+     * Start reproduction activity
+     */
+    startReproducing() {
+        this.isReproducing = true;
+        this.reproductionTimer = this.REPRODUCTION_DURATION;
+        this.moving = false;
+        this.path = [];
+        this.visualIndicator.clear();
     }
     /**
      * Draw the visual indicator for the target tile
