@@ -40,8 +40,13 @@ export class GameObject {
     draw(ctx) {
         ctx.fillStyle = "transparent";
         ctx.fillRect(this.position.x, this.position.y, TILE_SIZE, TILE_SIZE);
-        ctx.strokeStyle = "yellow";
-        ctx.strokeRect(this.destinationPosition.x, this.destinationPosition.y, TILE_SIZE, TILE_SIZE);
+        // ctx.strokeStyle = "yellow";
+        // ctx.strokeRect(
+        //   this.destinationPosition.x,
+        //   this.destinationPosition.y,
+        //   TILE_SIZE,
+        //   TILE_SIZE,
+        // );
         ctx.drawImage(this.sprite.image, this.sprite.x * this.sprite.width, this.sprite.y * this.sprite.height, this.sprite.width, this.sprite.height, this.position.x + HALF_TILE - this.halfWidth, this.position.y + TILE_SIZE - this.height, this.width, this.height);
     }
 }
