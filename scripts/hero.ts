@@ -18,12 +18,14 @@ interface HeroConfig {
   scale?: number;
   name?: string;
   health?: number;
+  maxHealth?: number;
   maxEnergy?: number;
   energy?: number;
   speed?: number;
   indicatorColor?: string;
   gender?: 'male' | 'female';
   familyId?: string;
+  socialStatus?: number;
 }
 
 interface Game {
@@ -43,6 +45,7 @@ export class Hero extends GameObject {
   game: Game;
   name: string;
   health: number;
+  maxHealth: number;
   maxEnergy: number;
   energy: number;
   speed: number;
@@ -62,8 +65,10 @@ export class Hero extends GameObject {
   isReproducing: boolean;
   reproductionTimer: number;
   angerMeter: number;
+  socialStatus: number;
   familyId: string;
   isDead: boolean;
+  intendedFoodPos: Position | null;
   private readonly WAIT_THRESHOLD: number;
   private readonly REPRODUCTION_DURATION = 5000; // 5 seconds
 
@@ -74,16 +79,19 @@ export class Hero extends GameObject {
     scale,
     name = "Laila",
     health = 100,
+    maxHealth,
     maxEnergy = 100,
     energy = 50,
     speed = 75,
     indicatorColor = "255, 68, 68",
     gender = 'female',
     familyId = Math.random().toString(36).substr(2, 9),
+    socialStatus = 0,
   }: HeroConfig) {
     super({ game, sprite, position, scale });
     this.game = game;
     this.name = name;
+    this.maxHealth = maxHealth ?? health;
     this.health = health;
     this.maxEnergy = maxEnergy;
     this.energy = energy;
@@ -91,13 +99,17 @@ export class Hero extends GameObject {
     this.indicatorColor = indicatorColor;
     this.gender = gender;
     this.familyId = familyId;
+    this.socialStatus = socialStatus;
     this.fertilityMeter = 50;
     this.angerMeter = 0;
     this.isReproducing = false;
     this.isDead = false;
+    this.intendedFoodPos = null;
     this.reproductionTimer = 0;
     this.maxFrame = 8;
     this.moving = false;
+    
+    console.log(`[HERO_INIT] ${this.name} initialized with Health: ${this.health}/${this.maxHealth}, Energy: ${this.energy}/${this.maxEnergy}`);
     this.targetPosition = null;
     this.path = [];
     this.isBlocked = false;
@@ -178,8 +190,33 @@ export class Hero extends GameObject {
     }
     return false;
   }
+
+  /**
+   * Check if the hero has reached puberty/adulthood
+   */
+  isAdult(): boolean {
+    return this.health >= 100 && this.scale >= 1;
+  }
+
   update(deltaTime: number): void {
     const scaledSpeed = this.speed * (deltaTime / 1000);
+
+    // Puberty/Growth System
+    if (this.scale < 1) {
+      // Scale increases with health: 25 HP -> 0.25 scale, 100 HP -> 1.0 scale
+      const targetScale = Math.max(0.2, Math.min(1, this.health / 100));
+      // Smoothly interpolate towards target scale (10% per frame or similar)
+      this.scale += (targetScale - this.scale) * 0.1;
+      if (this.scale > 1) this.scale = 1;
+
+      // Update base Sprite.scale from GameObject
+      (this as any).scale = this.scale;
+      
+      // Update dimensions for drawing and collision
+      this.width = this.sprite.width * this.scale;
+      this.height = this.sprite.height * this.scale;
+      this.halfWidth = this.width / 2;
+    }
 
     const activeIndex = (this.game as any).activeHeroIndex;
     const isActive = activeIndex !== -1 && (this.game as any).heroes[activeIndex] === this;
@@ -196,6 +233,8 @@ export class Hero extends GameObject {
         x: Math.floor(worldClick.x / TILE_SIZE) * TILE_SIZE,
         y: Math.floor(worldClick.y / TILE_SIZE) * TILE_SIZE,
       };
+
+      this.intendedFoodPos = null; // Clear intended food if manually moved
 
       const { row, col } = this.collisionChecker.getTileCoordinates(targetPos);
 
@@ -237,6 +276,7 @@ export class Hero extends GameObject {
         if (this.tryMove(0, -1, 8)) {
           this.path = [];
           this.visualIndicator.clear();
+          this.intendedFoodPos = null; // Clear if manually moved
           console.log("Moving up...");
           this.isBlocked = false;
           this.blockedRetryCount = 0;
@@ -247,6 +287,7 @@ export class Hero extends GameObject {
         if (this.tryMove(1, 0, 11)) {
           this.path = [];
           this.visualIndicator.clear();
+          this.intendedFoodPos = null; // Clear if manually moved
           console.log("Moving right...");
           this.isBlocked = false;
           this.blockedRetryCount = 0;
@@ -257,6 +298,7 @@ export class Hero extends GameObject {
         if (this.tryMove(0, 1, 10)) {
           this.path = [];
           this.visualIndicator.clear();
+          this.intendedFoodPos = null; // Clear if manually moved
           console.log("Moving down...");
           this.isBlocked = false;
           this.blockedRetryCount = 0;
@@ -267,6 +309,7 @@ export class Hero extends GameObject {
         if (this.tryMove(-1, 0, 9)) {
           this.path = [];
           this.visualIndicator.clear();
+          this.intendedFoodPos = null; // Clear if manually moved
           console.log("Moving left...");
           this.isBlocked = false;
           this.blockedRetryCount = 0;
@@ -410,6 +453,21 @@ export class Hero extends GameObject {
       this.isDead = true;
       console.log(`${this.name} has died.`);
       Toast.error(`${this.name} has died.`);
+      
+      // Family Vengeance
+      if (this.game && (this.game as any).heroes) {
+        let mourningFamily = false;
+        (this.game as any).heroes.forEach((h: Hero) => {
+          if (h !== this && !h.isDead && h.familyId === this.familyId) {
+            h.angerMeter += 25;
+            if (h.angerMeter > 100) h.angerMeter = 100;
+            mourningFamily = true;
+          }
+        });
+        if (mourningFamily) {
+          console.log(`[HERO_AI] Family of ${this.name} mourns their loss. Anger +25!`);
+        }
+      }
     }
   }
 
@@ -420,9 +478,20 @@ export class Hero extends GameObject {
     if (this.isDead || target.isDead || this.familyId === target.familyId) return;
 
     console.log(`${this.name} is attacking ${target.name}!`);
-    target.takeDamage(20);
-    this.angerMeter -= 30; // Venting anger
-    if (this.angerMeter < 0) this.angerMeter = 0;
+    
+    // Attacking takes a toll on the attacker
+    this.energy -= 10;
+    if (this.energy < 0) this.energy = 0;
+    this.takeDamage(5); // Small health drain
+    
+    // Deal damage to target
+    target.takeDamage(40);
+    
+    this.angerMeter = 0; // Venting anger instantly neutralizes it
+
+    // Social penalty for aggression
+    this.socialStatus -= 15;
+    if (this.socialStatus < 0) this.socialStatus = 0;
   }
 
   /**
@@ -431,23 +500,35 @@ export class Hero extends GameObject {
   eat(foodType: 'fastfood' | 'meal'): void {
     const energyGain = foodType === 'fastfood' ? 30 : 100;
 
-    if (this.health < this.maxEnergy * 0.5) {
+    if (this.health < this.maxHealth * 0.75) {
       // Priority: restore health first
       this.health += energyGain;
-      if (this.health > this.maxEnergy) {
-        const overflow = this.health - this.maxEnergy;
-        this.health = this.maxEnergy;
+      if (this.health > this.maxHealth) {
+        const overflow = this.health - this.maxHealth;
+        this.health = this.maxHealth;
         this.energy += overflow;
       }
     } else {
       // Split gain
       this.health += energyGain * 0.4;
       this.energy += energyGain * 0.6;
-      if (this.health > this.maxEnergy) this.health = this.maxEnergy;
+      if (this.health > this.maxHealth) this.health = this.maxHealth;
     }
 
     if (this.energy > 100) this.energy = 100;
-    this.angerMeter -= 20; // Food reduces anger
+    this.angerMeter -= 50; // Eating significantly reduces anger
+    if (this.angerMeter < 0) this.angerMeter = 0;
+  }
+
+  /**
+   * Increase social status through interaction
+   */
+  socialize(amount: number): void {
+    this.socialStatus += amount;
+    if (this.socialStatus > 100) this.socialStatus = 100;
+    
+    // Socializing reduces anger
+    this.angerMeter -= (amount * 10);
     if (this.angerMeter < 0) this.angerMeter = 0;
   }
 
@@ -455,8 +536,15 @@ export class Hero extends GameObject {
    * Start reproduction activity
    */
   startReproducing(partner?: Hero): void {
+    if (!this.isAdult()) return; // Cannot reproduce until puberty
+    if (partner && !partner.isAdult()) return;
+
     this.isReproducing = true;
     this.reproductionTimer = this.REPRODUCTION_DURATION;
+    
+    // Reproduction significantly decreases anger
+    this.angerMeter -= 50;
+    if (this.angerMeter < 0) this.angerMeter = 0;
     this.moving = false;
     this.path = [];
     this.visualIndicator.clear();
