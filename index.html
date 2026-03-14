@@ -106,6 +106,26 @@
       pointer-events: auto;
       box-shadow: 0 0 15px rgba(170, 0, 255, 0.5);
       min-width: 150px;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+
+    #info-panel::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    #info-panel::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 4px;
+    }
+
+    #info-panel::-webkit-scrollbar-thumb {
+      background: rgba(170, 0, 255, 0.5);
+      border-radius: 4px;
+    }
+
+    #info-panel::-webkit-scrollbar-thumb:hover {
+      background: rgba(170, 0, 255, 0.8);
     }
 
     #spawn-controls {
@@ -217,9 +237,44 @@
       height: 6px;
       background: rgba(255, 255, 255, 0.1);
       border-radius: 3px;
-      margin-top: 2px;
-      margin-bottom: 6px;
       overflow: hidden;
+    }
+
+    .family-group {
+      border: 1px solid rgba(170, 0, 255, 0.5);
+      border-radius: 6px;
+      padding: 10px;
+      background: rgba(20, 0, 40, 0.6);
+      margin-bottom: 0px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .family-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .family-header {
+      font-size: 14px;
+      color: #e0b3ff;
+      margin: 0;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      border-bottom: 1px dashed rgba(170, 0, 255, 0.5);
+      padding-bottom: 5px;
+      font-weight: bold;
+    }
+
+    .stat-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .stat-row svg {
+      flex-shrink: 0;
     }
 
     .stat-bar-fill {

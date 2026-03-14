@@ -68,7 +68,7 @@ window.addEventListener("load", function () {
                 this.heroes = [
                     new Hero({
                         game: this,
-                        name: "Majnu",
+                        name: "Majnu Kumar",
                         health: 50,
                         maxHealth: 100,
                         energy: 50,
@@ -84,10 +84,11 @@ window.addEventListener("load", function () {
                         scale: 1,
                         indicatorColor: "119, 212, 255", // Cyan for Majnu
                         gender: 'male',
+                        familyId: 'Kumar',
                     }),
                     new Hero({
                         game: this,
-                        name: "Laila",
+                        name: "Laila Kumari",
                         health: 50,
                         maxHealth: 100,
                         energy: 50,
@@ -103,10 +104,11 @@ window.addEventListener("load", function () {
                         scale: 1,
                         indicatorColor: "224, 179, 255", // Purple for Laila
                         gender: 'female',
+                        familyId: 'Kumar',
                     }),
                     new Hero({
                         game: this,
-                        name: "Adam",
+                        name: "Adam Smith",
                         health: 50,
                         maxHealth: 100,
                         energy: 50,
@@ -122,10 +124,11 @@ window.addEventListener("load", function () {
                         scale: 1,
                         indicatorColor: "255, 100, 100",
                         gender: 'male',
+                        familyId: 'Smith',
                     }),
                     new Hero({
                         game: this,
-                        name: "Eve",
+                        name: "Eve Jones",
                         health: 50,
                         maxHealth: 100,
                         energy: 50,
@@ -141,6 +144,7 @@ window.addEventListener("load", function () {
                         scale: 1,
                         indicatorColor: "255, 150, 200",
                         gender: 'female',
+                        familyId: 'Jones',
                     })
                 ];
             }
@@ -262,11 +266,13 @@ window.addEventListener("load", function () {
             const spriteId = g === 'male' ? "hero1" : "hero2";
             // Get name from API or fallback
             let name = g === 'male' ? "New Guy" : "New Girl";
+            let familyId = Math.random().toString(36).substr(2, 9);
             try {
                 const response = await fetch(`https://randomuser.me/api/?gender=${g}&nat=us`);
                 const data = await response.json();
                 const n = data.results[0].name;
                 name = `${n.first} ${n.last}`;
+                familyId = n.last;
             }
             catch (e) {
                 console.error("Failed to fetch name for manual spawn:", e);
@@ -287,6 +293,7 @@ window.addEventListener("load", function () {
                 position: { x: col * TILE_SIZE, y: row * TILE_SIZE },
                 scale: 1,
                 gender: g,
+                familyId: familyId,
                 indicatorColor: g === 'male' ? "119, 212, 255" : "224, 179, 255"
             });
             this.heroes.push(newHero);
@@ -382,41 +389,61 @@ window.addEventListener("load", function () {
     const infoPanel = document.getElementById("info-panel");
     const updateInfoPanelLayout = () => {
         if (infoPanel) {
-            infoPanel.innerHTML = game.heroes.map((hero, index) => {
-                const isActive = index === game.activeHeroIndex;
-                return `
-        <div class="hero-info ${isActive ? 'active-hero' : ''}" id="hero-info-${index}">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-            <h3 style="margin: 0;">${hero.name}</h3>
-            <button class="active-toggle-btn ${isActive ? 'is-active' : ''}" id="hero-btn-${index}" data-index="${index}">
-              ${isActive ? 'Active' : (game.activeHeroIndex === -1 ? 'Select' : 'Set Active')}
-            </button>
-          </div>
-          
-          <div class="stat-row">
-            <span>HP</span>
-            <div class="stat-bar-container"><div class="stat-bar-fill health-fill" id="hp-bar-${index}" style="width: ${(hero.health / hero.maxHealth) * 100}%"></div></div>
-          </div>
-          <div class="stat-row">
-            <span>EN</span>
-            <div class="stat-bar-container"><div class="stat-bar-fill energy-fill" id="en-bar-${index}" style="width: ${hero.energy}%"></div></div>
-          </div>
-          <div class="stat-row">
-            <span>FR</span>
-            <div class="stat-bar-container"><div class="stat-bar-fill fertility-fill" id="fr-bar-${index}" style="width: ${hero.fertilityMeter}%"></div></div>
-          </div>
-          <div class="stat-row">
-            <span>AN</span>
-            <div class="stat-bar-container"><div class="stat-bar-fill anger-fill" id="an-bar-${index}" style="background-color: #ff3333; width: ${hero.angerMeter}%"></div></div>
-          </div>
-          <div class="stat-row">
-            <span>SS</span>
-            <div class="stat-bar-container"><div class="stat-bar-fill social-fill" id="ss-bar-${index}" style="width: ${hero.socialStatus}%"></div></div>
-          </div>
-          <div id="hero-status-${index}" style="color: #ffcc00; font-size: 0.8em; margin-top: 4px; font-weight: bold;"></div>
+            // Group heroes by familyId
+            const families = {};
+            game.heroes.forEach((hero, index) => {
+                const fId = hero.familyId || "Unknown";
+                if (!families[fId])
+                    families[fId] = [];
+                // Store original index for DOM IDs
+                hero._originalIndex = index;
+                families[fId].push(hero);
+            });
+            let htmlContent = '';
+            for (const [fId, members] of Object.entries(families)) {
+                htmlContent += `
+        <div class="family-group">
+          <div class="family-header">Family: ${fId}</div>
+          ${members.map((hero) => {
+                    const index = hero._originalIndex;
+                    const isActive = index === game.activeHeroIndex;
+                    return `
+            <div class="hero-info ${isActive ? 'active-hero' : ''}" id="hero-info-${index}">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                <h3 style="margin: 0;">${hero.name}</h3>
+                <button class="active-toggle-btn ${isActive ? 'is-active' : ''}" id="hero-btn-${index}" data-index="${index}">
+                  ${isActive ? 'Active' : (game.activeHeroIndex === -1 ? 'Select' : 'Set Active')}
+                </button>
+              </div>
+              
+              <div class="stat-row" title="Health">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ff4757" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                <div class="stat-bar-container"><div class="stat-bar-fill health-fill" id="hp-bar-${index}" style="width: ${(hero.health / hero.maxHealth) * 100}%"></div></div>
+              </div>
+              <div class="stat-row" title="Energy">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2ed573" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+                <div class="stat-bar-container"><div class="stat-bar-fill energy-fill" id="en-bar-${index}" style="width: ${hero.energy}%"></div></div>
+              </div>
+              <div class="stat-row" title="Fertility">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e0b3ff" stroke-width="2"><circle cx="8" cy="12" r="5"/><circle cx="16" cy="12" r="5"/></svg>
+                <div class="stat-bar-container"><div class="stat-bar-fill fertility-fill" id="fr-bar-${index}" style="width: ${hero.fertilityMeter}%"></div></div>
+              </div>
+              <div class="stat-row" title="Anger">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffa502" stroke-width="2"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
+                <div class="stat-bar-container"><div class="stat-bar-fill anger-fill" id="an-bar-${index}" style="background-color: #ff3333; width: ${hero.angerMeter}%"></div></div>
+              </div>
+              <div class="stat-row" title="Social Status">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1e90ff" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                <div class="stat-bar-container"><div class="stat-bar-fill social-fill" id="ss-bar-${index}" style="width: ${hero.socialStatus}%"></div></div>
+              </div>
+              <div id="hero-status-${index}" style="color: #ffcc00; font-size: 0.8em; margin-top: 4px; font-weight: bold;"></div>
+            </div>
+            `;
+                }).join('')}
         </div>
-      `;
-            }).join('');
+        `;
+            }
+            infoPanel.innerHTML = htmlContent;
         }
     };
     window.updateInfoPanelLayout = updateInfoPanelLayout;
@@ -479,22 +506,22 @@ window.addEventListener("load", function () {
                     male.startReproducing(female);
                     female.startReproducing(male);
                     // Fetch name from API
-                    async function getRandomName(gender) {
+                    async function getRandomName(gender, surname) {
                         try {
                             const response = await fetch(`https://randomuser.me/api/?gender=${gender}&nat=us`);
                             const data = await response.json();
                             const nameData = data.results[0].name;
-                            return `${nameData.first} ${nameData.last}`;
+                            return `${nameData.first} ${surname}`;
                         }
                         catch (e) {
                             console.error("Failed to fetch name from API:", e);
-                            return gender === 'male' ? "Junior " + male.name : "Mini " + female.name;
+                            return gender === 'male' ? "Junior " + surname : "Mini " + surname;
                         }
                     }
                     // Child spawn callback (simulated after duration)
                     setTimeout(async () => {
                         const gender = Math.random() > 0.5 ? 'male' : 'female';
-                        const name = await getRandomName(gender);
+                        const name = await getRandomName(gender, male.familyId);
                         const spriteId = gender === 'male' ? "hero1" : "hero2";
                         // Find a nearby empty tile for the baby
                         const directions = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }, { x: 1, y: 1 }, { x: -1, y: 1 }, { x: 1, y: -1 }, { x: -1, y: -1 }];
