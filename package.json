@@ -8,7 +8,6 @@
     "2d",
     "world"
   ],
-  "license": "ISC",
   "author": "darryj",
   "type": "commonjs",
   "main": "main.js",
