@@ -24,7 +24,9 @@ export class Hero extends GameObject {
         this.angerMeter = angerMeter;
         this.isReproducing = false;
         this.isDead = isDead;
+        this.deathCause = null;
         this.intendedFoodPos = null;
+        this.intendedPartner = null;
         this.reproductionTimer = 0;
         this.maxFrame = 8;
         this.moving = false;
@@ -137,6 +139,7 @@ export class Hero extends GameObject {
                 y: Math.floor(worldClick.y / TILE_SIZE) * TILE_SIZE,
             };
             this.intendedFoodPos = null; // Clear intended food if manually moved
+            this.intendedPartner = null; // Clear intended partner 
             const { row, col } = this.collisionChecker.getTileCoordinates(targetPos);
             if (!this.collisionChecker.isPositionWalkable(targetPos)) {
                 console.log(`[HERO_NAV] ${this.name} blocked from navigating to (${col}, ${row})`);
@@ -176,6 +179,7 @@ export class Hero extends GameObject {
                     this.path = [];
                     this.visualIndicator.clear();
                     this.intendedFoodPos = null; // Clear if manually moved
+                    this.intendedPartner = null;
                     console.log("Moving up...");
                     this.isBlocked = false;
                     this.blockedRetryCount = 0;
@@ -189,6 +193,7 @@ export class Hero extends GameObject {
                     this.path = [];
                     this.visualIndicator.clear();
                     this.intendedFoodPos = null; // Clear if manually moved
+                    this.intendedPartner = null;
                     console.log("Moving right...");
                     this.isBlocked = false;
                     this.blockedRetryCount = 0;
@@ -202,6 +207,7 @@ export class Hero extends GameObject {
                     this.path = [];
                     this.visualIndicator.clear();
                     this.intendedFoodPos = null; // Clear if manually moved
+                    this.intendedPartner = null;
                     console.log("Moving down...");
                     this.isBlocked = false;
                     this.blockedRetryCount = 0;
@@ -215,6 +221,7 @@ export class Hero extends GameObject {
                     this.path = [];
                     this.visualIndicator.clear();
                     this.intendedFoodPos = null; // Clear if manually moved
+                    this.intendedPartner = null;
                     console.log("Moving left...");
                     this.isBlocked = false;
                     this.blockedRetryCount = 0;
@@ -245,11 +252,20 @@ export class Hero extends GameObject {
             }
             else if (this.energy <= 0 && !this.isBlocked) {
                 // Use health to move if out of energy
-                this.takeDamage(deltaTime / 1000 * 5); // 5 health per second for moving without energy
+                this.takeDamage(deltaTime / 1000 * 5, 'hunger'); // 5 health per second for moving without energy
             }
         }
         else {
             this.moving = false;
+        }
+        // Jealousy Check
+        if (this.intendedPartner && this.intendedPartner.isReproducing) {
+            // Partner started reproducing with someone else!
+            Toast.warning(`${this.name} is furious! Their intended partner is with someone else!`);
+            this.angerMeter += 50;
+            if (this.angerMeter > 100)
+                this.angerMeter = 100;
+            this.intendedPartner = null; // Give up on them
         }
         // Update animation
         if (this.game.eventUpdate && this.moving && !this.isBlocked && !this.isReproducing) {
@@ -282,7 +298,7 @@ export class Hero extends GameObject {
         // Passive anger increase and health decay when hungry
         if (this.energy <= 0) {
             this.angerMeter += deltaTime / 1000 * 5; // Hunger breeds anger
-            this.takeDamage(deltaTime / 1000 * 5); // Starvation: lose 5 health per second
+            this.takeDamage(deltaTime / 1000 * 5, 'hunger'); // Starvation: lose 5 health per second
         }
         else if (this.energy < 20) {
             this.angerMeter += deltaTime / 1000 * 5; // Hunger breeds anger
@@ -355,26 +371,39 @@ export class Hero extends GameObject {
     /**
      * Take damage and check for death
      */
-    takeDamage(amount) {
+    takeDamage(amount, source) {
         this.health -= amount;
         if (this.health <= 0) {
             this.health = 0;
-            this.isDead = true;
-            console.log(`${this.name} has died.`);
-            Toast.error(`${this.name} has died.`);
-            // Family Vengeance
-            if (this.game && this.game.heroes) {
-                let mourningFamily = false;
-                this.game.heroes.forEach((h) => {
-                    if (h !== this && !h.isDead && h.familyId === this.familyId) {
-                        h.angerMeter += 25;
-                        if (h.angerMeter > 100)
-                            h.angerMeter = 100;
-                        mourningFamily = true;
+            if (!this.isDead) {
+                this.isDead = true;
+                this.deathCause = source || null;
+                if (source === 'hunger') {
+                    console.log(`${this.name} has starved to death.`);
+                    Toast.error(`${this.name} starved to death.`);
+                }
+                else if (source instanceof Hero) {
+                    console.log(`${this.name} was brutally murdered by ${source.name}!`);
+                    Toast.error(`${this.name} was murdered by ${source.name}!`);
+                }
+                else {
+                    console.log(`${this.name} has died.`);
+                    Toast.error(`${this.name} has died.`);
+                }
+                // Family Vengeance
+                if (this.game && this.game.heroes) {
+                    let mourningFamily = false;
+                    this.game.heroes.forEach((h) => {
+                        if (h !== this && !h.isDead && h.familyId === this.familyId) {
+                            h.angerMeter += 25;
+                            if (h.angerMeter > 100)
+                                h.angerMeter = 100;
+                            mourningFamily = true;
+                        }
+                    });
+                    if (mourningFamily) {
+                        console.log(`[HERO_AI] Family of ${this.name} mourns their loss. Anger +25!`);
                     }
-                });
-                if (mourningFamily) {
-                    console.log(`[HERO_AI] Family of ${this.name} mourns their loss. Anger +25!`);
                 }
             }
         }
@@ -392,7 +421,7 @@ export class Hero extends GameObject {
             this.energy = 0;
         this.takeDamage(5); // Small health drain
         // Deal damage to target
-        target.takeDamage(40);
+        target.takeDamage(40, this);
         this.angerMeter = 0; // Venting anger instantly neutralizes it
         // Social penalty for aggression
         this.socialStatus -= 15;
@@ -455,6 +484,7 @@ export class Hero extends GameObject {
         this.moving = false;
         this.path = [];
         this.visualIndicator.clear();
+        this.intendedPartner = null; // Clear intent once actually mating
         // Partners share family link
         if (partner)
             partner.familyId = this.familyId;

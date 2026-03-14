@@ -19,6 +19,7 @@ window.addEventListener("load", function () {
     class Game {
         constructor() {
             this.food = [];
+            this.corpses = [];
             this.autoSpawnEnabled = true;
             this.spawnFrequencyMultiplier = 1;
             this.world = new World();
@@ -193,6 +194,26 @@ window.addEventListener("load", function () {
             this.food.forEach(f => f.draw(ctx));
             this.heroes.forEach(h => h.draw(ctx));
             this.heroes.forEach(h => h.drawTargetIndicator(ctx));
+            // Draw Corpses
+            this.corpses.forEach(c => {
+                c.age += deltaTime;
+                if (c.age > 30000)
+                    return; // fade out max
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, 1 - (c.age / 30000));
+                ctx.font = "24px Arial";
+                ctx.textAlign = "center";
+                // Draw the marker
+                if (c.cause === 'hunger') {
+                    ctx.fillText("⚰️", c.position.x + HALF_TILE, c.position.y + HALF_TILE);
+                }
+                else {
+                    ctx.fillText("☠️", c.position.x + HALF_TILE, c.position.y + HALF_TILE);
+                }
+                ctx.restore();
+            });
+            // Filter expired corpses out
+            this.corpses = this.corpses.filter(c => c.age <= 30000);
             this.world.drawForeground(ctx);
             ctx.restore();
             if (this.eventTimer < this.eventInterval) {
@@ -494,7 +515,17 @@ window.addEventListener("load", function () {
         const males = readyHeroes.filter(h => h.gender === 'male');
         const females = readyHeroes.filter(h => h.gender === 'female');
         for (const male of males) {
-            for (const female of females) {
+            // Sort females: prioritize those not in the same family to encourage cross-family mating
+            const sortedFemales = [...females].sort((a, b) => {
+                const aCrossFamily = a.familyId !== male.familyId;
+                const bCrossFamily = b.familyId !== male.familyId;
+                if (aCrossFamily && !bCrossFamily)
+                    return -1;
+                if (!aCrossFamily && bCrossFamily)
+                    return 1;
+                return b.socialStatus - a.socialStatus; // tie-breaker: social status
+            });
+            for (const female of sortedFemales) {
                 // Check if they are already reproducing together (implicit via timer)
                 if (male.isReproducing || female.isReproducing)
                     continue;
@@ -569,6 +600,7 @@ window.addEventListener("load", function () {
                         if (targetTileX >= 0 && targetTileX < COLS && targetTileY >= 0 && targetTileY < ROWS) {
                             const isBlocked = game.world.getTile(game.world.level1.collisionLayer, targetTileY, targetTileX) === 1;
                             if (!isBlocked && !game.isTileOccupied(targetTileY, targetTileX)) {
+                                male.intendedPartner = female;
                                 male.navigateToTile({ x: targetTileX * TILE_SIZE, y: targetTileY * TILE_SIZE });
                                 break;
                             }
@@ -577,8 +609,16 @@ window.addEventListener("load", function () {
                 }
             }
         }
-        // Remove dead heroes from list and update layout if needed
+        // Remove dead heroes from list, drop corpses, and update layout if needed
         const initialCount = game.heroes.length;
+        const deadHeroes = game.heroes.filter(h => h.isDead);
+        deadHeroes.forEach(h => {
+            game.corpses.push({
+                position: { x: h.position.x, y: h.position.y },
+                cause: h.deathCause,
+                age: 0
+            });
+        });
         game.heroes = game.heroes.filter(h => !h.isDead);
         if (game.heroes.length !== initialCount && infoPanel) {
             updateInfoPanelLayout();
